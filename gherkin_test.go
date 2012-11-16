@@ -26,7 +26,7 @@ func assertMatchCalledOrNot(t *testing.T, step string, pattern string, isCalled 
         var g Runner
         g.Register(pattern, f)
 
-        g.Step(step)
+        g.step(step)
         AssertThat(t, wasCalled, Equals(isCalled))
     }
 
@@ -56,7 +56,7 @@ func TestCallsOnlyFirstMatchingMethod(t *testing.T) {
     var g Runner
     g.Register(".", first)
     g.Register(".", second)
-    g.Step("Given only the first step is called")
+    g.step("Given only the first step is called")
     AssertThat(t, wasCalled, Equals(false))
 }
 

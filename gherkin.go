@@ -1,3 +1,4 @@
+// Support the Gherkin language, as found in Ruby's Cucumber and Python's Lettuce projects.
 package gherkin
 
 import (
@@ -30,10 +31,13 @@ type Runner struct {
     Scenarios []string
 }
 
+// The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
     return &Runner{make([]stepdef, 1), 0, false, make([]string, 0)}
 }
 
+// Register a step definition. This requires a regular expression
+// pattern and a function to execute.
 func (r *Runner) Register(pattern string, f func()) {
     r.steps = append(r.steps, createstep(pattern, f))
 }
@@ -47,7 +51,7 @@ func (r *Runner) executeFirstMatchingStep(line string) {
     }
 }
 
-func (r *Runner) Step(line string) {
+func (r *Runner) step(line string) {
     defer func() {
         if rec := recover(); rec != nil {
             r.scenarioIsPending = true
@@ -64,13 +68,17 @@ func (r *Runner) Step(line string) {
     }
 }
 
+// Once the step definitions are Register()'d, use Execute() to
+// parse and execute Gherkin data.
 func (r *Runner) Execute(file string) {
     lines := strings.Split(file, "\n")
     for _, line := range lines {
-        r.Step(line)
+        r.step(line)
     }
 }
 
+// Use this function to let the user know that this
+// test is not complete.
 func Pending() {
     panic("Pending")
 }
