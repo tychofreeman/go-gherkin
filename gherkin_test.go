@@ -154,3 +154,4 @@ func TestRemembersNamesOfScenariosRun(t *testing.T) {
 }
 
 // Need to introduce Backgrounds and Scenario Outlines/Examples and table inputs
+// Need to support a lifecycle (setup/teardown) for each scenario executed.
