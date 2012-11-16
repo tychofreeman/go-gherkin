@@ -38,7 +38,7 @@ func (r *Runner) Register(pattern string, f func()) {
     r.steps = append(r.steps, createstep(pattern, f))
 }
 
-func (r *Runner) ExecuteFirstMatchingStep(line string) {
+func (r *Runner) executeFirstMatchingStep(line string) {
     for _, step := range r.steps {
         if step.execute(line) {
             r.StepCount++
@@ -57,7 +57,7 @@ func (r *Runner) Step(line string) {
     givenMatch, _ := re.Compile(`(Given|When|Then|And|But|\*) (.*?)\s*$`)
     scenarioMatch, _ := re.Compile(`Scenario:\s*(.*?)\s*$`)
     if s := givenMatch.FindStringSubmatch(line); !r.scenarioIsPending && s != nil && len(s) > 1 {
-        r.ExecuteFirstMatchingStep(s[2])
+        r.executeFirstMatchingStep(s[2])
     } else if s := scenarioMatch.FindStringSubmatch(line); s != nil {
         r.Scenarios = append(r.Scenarios, s[1])
         r.scenarioIsPending = false
