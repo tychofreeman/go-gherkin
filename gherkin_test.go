@@ -149,8 +149,30 @@ func TestRemembersNamesOfScenariosRun(t *testing.T) {
 
     g.Execute(featureText)
 
-    AssertThat(t, g.Scenarios, Contains("Scenario 1"))
-    AssertThat(t, g.Scenarios, Contains("Scenario 2"))
+    AssertThat(t, g.Scenarios(), Contains("Scenario 1"))
+    AssertThat(t, g.Scenarios(), Contains("Scenario 2"))
+}
+
+func TestRemembersNameOfFeature(t *testing.T) {
+    var g Runner
+
+    g.Execute(featureText)
+
+    AssertThat(t, g.Features, Contains("My Feature"))
+}
+
+func TestBackgroundIsRunBeforeEachScenario(t *testing.T) {
+    var g Runner
+    wasCalled := false
+    g.Register("^background$", func() { wasCalled = true })
+    g.Execute(`Feature: 
+        Background:
+            Given background
+        Scenario:
+            Then this
+    `)
+
+    AssertThat(t, wasCalled, IsTrue)
 }
 
 // Need to introduce Backgrounds and Scenario Outlines/Examples and table inputs
