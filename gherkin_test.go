@@ -3,6 +3,7 @@ package gherkin
 import (
     "testing"
     . "github.com/tychofreeman/go-matchers"
+    "fmt"
 )
 
 var featureText = `Feature: My Feature
@@ -26,7 +27,7 @@ func assertMatchCalledOrNot(t *testing.T, step string, pattern string, isCalled 
         var g Runner
         g.Register(pattern, f)
 
-        g.step(step)
+        g.Execute(step)
         AssertThat(t, wasCalled, Equals(isCalled))
     }
 
@@ -56,7 +57,7 @@ func TestCallsOnlyFirstMatchingMethod(t *testing.T) {
     var g Runner
     g.Register(".", first)
     g.Register(".", second)
-    g.step("Given only the first step is called")
+    g.Execute("Given only the first step is called")
     AssertThat(t, wasCalled, Equals(false))
 }
 
@@ -126,7 +127,7 @@ func TestPendingSkipsTests(t *testing.T) {
 
     g.Register("^the first setup$", func() { Pending() })
     actionWasCalled := false
-    g.Register("^the first action$", func() { actionWasCalled = true })
+    g.Register("^the first action$", func() { actionWasCalled = true; fmt.Printf("***THIS*SHOULD*NOT*HAPPEN***\n") })
 
     g.Execute(featureText)
     AssertThat(t, actionWasCalled, Equals(false))
@@ -184,8 +185,27 @@ func TestCallsTearDownBeforeScenario(t *testing.T) {
     AssertThat(t, tearDownWasCalled, IsTrue)
 }
 
-// Need to introduce Backgrounds and Scenario Outlines/Examples and table inputs
-// Need to support a lifecycle (setup/teardown) for each scenario executed.
+func TestPassesTableListToMultiLineStep(t *testing.T) {
+    var g Runner
+    var data []map[string]string
+    g.RegisterMultiLine(".", func(t []map[string]string) { data = t })
+    g.Execute(`Feature:
+        Scenario:
+            Then you should see these people
+                |name|email|
+                |Bob |bob@bob.com|
+    `)
+
+    expectedMap := map[string]string{}
+    expectedMap["name"] = "Bob"
+    expectedMap["email"] = "bob@bob.com"
+    expectedList := []map[string]string{expectedMap}
+    AssertThat(t, data, Equals(expectedList))
+}
+
+// Need to introduce Scenario Outlines/Examples 
+// Need to support multi-line steps
+// Need to support regex params
 // Support PyStrings?
 // Support tags?
 // Support reporting.

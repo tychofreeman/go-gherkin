@@ -9,16 +9,26 @@ import (
 type stepdef struct {
     r *re.Regexp
     f func()
+    mlf func([]map[string]string)
 }
 
 func createstep(p string, f func()) stepdef {
     r, _ := re.Compile(p)
-    return stepdef{r, f}
+    return stepdef{r, f, nil}
 }
 
-func (s stepdef) execute(line string) bool {
+func createmlstep(p string, f func([]map[string]string)) stepdef {
+    r, _ := re.Compile(p)
+    return stepdef{r, nil, f}
+}
+
+func (s stepdef) execute(line string, mlData []map[string]string) bool {
     if s.r.MatchString(line) {
-        s.f()
+        if s.f != nil {
+            s.f()
+        } else if s.mlf != nil {
+            s.mlf(mlData)
+        }
         return true
     }
     return false
@@ -32,6 +42,9 @@ type Runner struct {
     collectBackground bool
     setUp func()
     tearDown func()
+    prevStep string
+    keys []string
+    mlStep []map[string]string
 }
 
 // Register a set-up function to be called at the beginning of each scenario
@@ -46,7 +59,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    return &Runner{make([]stepdef, 1), 0, false, make([]string, 0), false, nil, nil}
+    return &Runner{make([]stepdef, 1), 0, false, make([]string, 0), false, nil, nil, "", nil, []map[string]string{}}
 }
 
 // Register a step definition. This requires a regular expression
@@ -55,9 +68,27 @@ func (r *Runner) Register(pattern string, f func()) {
     r.steps = append(r.steps, createstep(pattern, f))
 }
 
-func (r *Runner) executeFirstMatchingStep(line string) {
+// Register a multi-line step definition
+func (r *Runner) RegisterMultiLine(pattern string, f func([]map[string]string)) {
+    r.steps = append(r.steps, createmlstep(pattern, f))
+}
+
+func (r *Runner) executeFirstMatchingStep() {
+    defer func() {
+        r.prevStep = ""
+        if rec := recover(); rec != nil {
+            if rec == "Pending" {
+                r.scenarioIsPending = true
+            } else {
+                panic(rec)
+            }
+        }
+    }()
+    if r.prevStep == "" {
+        return
+    }
     for _, step := range r.steps {
-        if step.execute(line) {
+        if step.execute(r.prevStep, r.mlStep) {
             r.StepCount++
             return
         }
@@ -78,7 +109,7 @@ func (r *Runner) callTearDown() {
 
 func (r *Runner) parseAsStep(line string) (bool, string) {
     givenMatch, _ := re.Compile(`(Given|When|Then|And|But|\*) (.*?)\s*$`)
-    if s := givenMatch.FindStringSubmatch(line); !r.scenarioIsPending && s != nil && len(s) > 1 {
+    if s := givenMatch.FindStringSubmatch(line); s != nil && len(s) > 1 {
         return true, s[2]
     }
     return false, ""
@@ -100,6 +131,28 @@ func (r *Runner) isFeatureLine(line string) bool {
     return false
 }
 
+func (r *Runner) isMultiLineStep(line string) bool {
+    mlMatch, _ := re.Compile(`^\s*\|.*\|\s*$`)
+    if mlMatch.MatchString(line) {
+        tmpFields := strings.Split(line, "|")
+        fields := tmpFields[1:len(tmpFields)-1]
+        for i, f := range fields {
+            fields[i] = strings.TrimSpace(f)
+        }
+        if r.keys == nil {
+            r.keys = fields
+        } else {
+            l := make(map[string]string)
+            r.mlStep = append(r.mlStep, l)
+            for i, k := range r.keys {
+                l[k] = fields[i]
+            }
+        }
+        return true
+    }
+    return false
+}
+
 func (r *Runner) isBackgroundLine(line string) bool {
     backgroundMatch, _ := re.Compile(`Background:`)
     if s := backgroundMatch.FindStringSubmatch(line); s != nil {
@@ -110,7 +163,7 @@ func (r *Runner) isBackgroundLine(line string) bool {
 
 func (r *Runner) executeStep(line string) {
     if !r.collectBackground {
-        r.executeFirstMatchingStep(line)
+        r.prevStep = line
     } else {
         r.background = append(r.background, line)
     }
@@ -122,29 +175,27 @@ func (r *Runner) startScenario() {
     r.scenarioIsPending = false
     r.callSetUp()
     for _, bline := range r.background {
-        r.executeFirstMatchingStep(bline)
+        r.prevStep = bline
+        r.executeFirstMatchingStep()
     }
 }
 
 func (r *Runner) step(line string) {
-    defer func() {
-        if rec := recover(); rec != nil {
-            if rec == "Pending" {
-                r.scenarioIsPending = true
-            } else {
-                panic(rec)
-            }
-        }
-    }()
-
     if isStep, data := r.parseAsStep(line); isStep { 
-        r.executeStep(data)
+        r.executeFirstMatchingStep()
+        // If the previous step didn't make us pending, go ahead and execute the new one when appropriate
+        if !r.scenarioIsPending {
+            r.executeStep(data)
+        }
     } else if r.isScenarioLine(line) {
+        r.executeFirstMatchingStep()
         r.startScenario()
     } else if r.isFeatureLine(line) { 
         // Do Nothing!
     } else if r.isBackgroundLine(line) {
         r.collectBackground = true
+    } else if r.isMultiLineStep(line) {
+        // collect...
     }
 }
 
@@ -155,6 +206,7 @@ func (r *Runner) Execute(file string) {
     for _, line := range lines {
         r.step(line)
     }
+    r.executeFirstMatchingStep()
     r.callTearDown()
 }
 
