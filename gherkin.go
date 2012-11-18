@@ -131,7 +131,7 @@ func (r *Runner) isFeatureLine(line string) bool {
     return false
 }
 
-func (r *Runner) isMultiLineStep(line string) bool {
+func (r *Runner) parseAsMultiLineStep(line string) (bool, map[string]string {
     mlMatch, _ := re.Compile(`^\s*\|.*\|\s*$`)
     if mlMatch.MatchString(line) {
         tmpFields := strings.Split(line, "|")
@@ -143,14 +143,13 @@ func (r *Runner) isMultiLineStep(line string) bool {
             r.keys = fields
         } else {
             l := make(map[string]string)
-            r.mlStep = append(r.mlStep, l)
             for i, k := range r.keys {
                 l[k] = fields[i]
             }
+            return true,l
         }
-        return true
     }
-    return false
+    return false, nil
 }
 
 func (r *Runner) isBackgroundLine(line string) bool {
@@ -194,8 +193,8 @@ func (r *Runner) step(line string) {
         // Do Nothing!
     } else if r.isBackgroundLine(line) {
         r.collectBackground = true
-    } else if r.isMultiLineStep(line) {
-        // collect...
+    } else if is, data := r.parseAsMultiLineStep(line); is {
+            r.mlStep = append(r.mlStep, data)
     }
 }
 
