@@ -144,23 +144,6 @@ func TestPendingDoesntSkipSecondScenario(t *testing.T) {
     AssertThat(t, secondActionCalled, Equals(true))
 }
 
-func TestRemembersNamesOfScenariosRun(t *testing.T) {
-    var g Runner
-
-    g.Execute(featureText)
-
-    AssertThat(t, g.Scenarios(), Contains("Scenario 1"))
-    AssertThat(t, g.Scenarios(), Contains("Scenario 2"))
-}
-
-func TestRemembersNameOfFeature(t *testing.T) {
-    var g Runner
-
-    g.Execute(featureText)
-
-    AssertThat(t, g.Features, Contains("My Feature"))
-}
-
 func TestBackgroundIsRunBeforeEachScenario(t *testing.T) {
     var g Runner
     wasCalled := false
@@ -173,6 +156,32 @@ func TestBackgroundIsRunBeforeEachScenario(t *testing.T) {
     `)
 
     AssertThat(t, wasCalled, IsTrue)
+}
+
+func TestCallsSeUptBeforeScenario(t *testing.T) {
+    var g Runner
+    setUpWasCalled := false
+    g.SetSetUpFn(func() { setUpWasCalled = true })
+
+    setUpCalledBeforeStep := false
+    g.Register(".", func() { setUpCalledBeforeStep = setUpWasCalled })
+    g.Execute(`Feature:
+        Scenario:
+            Then this`)
+
+    AssertThat(t, setUpCalledBeforeStep, IsTrue)
+}
+
+func TestCallsTearDownBeforeScenario(t *testing.T) {
+    var g Runner
+    tearDownWasCalled := false
+    g.SetTearDownFn(func() { tearDownWasCalled = true })
+
+    g.Execute(`Feature:
+        Scenario:
+            Then this`)
+    
+    AssertThat(t, tearDownWasCalled, IsTrue)
 }
 
 // Need to introduce Backgrounds and Scenario Outlines/Examples and table inputs

@@ -28,19 +28,25 @@ type Runner struct {
     steps []stepdef
     StepCount int
     scenarioIsPending bool
-    scenarios []string
-    Features []string
     background []string
     collectBackground bool
+    setUp func()
+    tearDown func()
 }
 
-func (r Runner) Scenarios() []string {
-    return r.scenarios
+// Register a set-up function to be called at the beginning of each scenario
+func (r *Runner) SetSetUpFn(setUp func()) {
+    r.setUp = setUp
+}
+
+// Register a tear-down function to be called at the end of each scenario
+func (r *Runner) SetTearDownFn(tearDown func()) {
+    r.tearDown = tearDown
 }
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    return &Runner{make([]stepdef, 1), 0, false, make([]string, 1), make([]string, 1), make([]string, 0), false}
+    return &Runner{make([]stepdef, 1), 0, false, make([]string, 0), false, nil, nil}
 }
 
 // Register a step definition. This requires a regular expression
@@ -58,33 +64,86 @@ func (r *Runner) executeFirstMatchingStep(line string) {
     }
 }
 
+func (r *Runner) callSetUp() {
+    if r.setUp != nil {
+        r.setUp()
+    }
+}
+
+func (r *Runner) callTearDown() {
+    if r.tearDown != nil {
+        r.tearDown()
+    }
+}
+
+func (r *Runner) parseAsStep(line string) (bool, string) {
+    givenMatch, _ := re.Compile(`(Given|When|Then|And|But|\*) (.*?)\s*$`)
+    if s := givenMatch.FindStringSubmatch(line); !r.scenarioIsPending && s != nil && len(s) > 1 {
+        return true, s[2]
+    }
+    return false, ""
+}
+
+func (r *Runner) isScenarioLine(line string) (bool) {
+    scenarioMatch, _ := re.Compile(`Scenario:\s*(.*?)\s*$`)
+    if s := scenarioMatch.FindStringSubmatch(line); s != nil {
+        return true
+    }
+    return false
+}
+
+func (r *Runner) isFeatureLine(line string) bool {
+    featureMatch, _ := re.Compile(`Feature:\s*(.*?)\s*$`)
+    if s := featureMatch.FindStringSubmatch(line); s != nil {
+        return true
+    }
+    return false
+}
+
+func (r *Runner) isBackgroundLine(line string) bool {
+    backgroundMatch, _ := re.Compile(`Background:`)
+    if s := backgroundMatch.FindStringSubmatch(line); s != nil {
+        return true
+    }
+    return false
+}
+
+func (r *Runner) executeStep(line string) {
+    if !r.collectBackground {
+        r.executeFirstMatchingStep(line)
+    } else {
+        r.background = append(r.background, line)
+    }
+}
+
+func (r *Runner) startScenario() {
+    r.callTearDown()
+    r.collectBackground = false
+    r.scenarioIsPending = false
+    r.callSetUp()
+    for _, bline := range r.background {
+        r.executeFirstMatchingStep(bline)
+    }
+}
+
 func (r *Runner) step(line string) {
     defer func() {
         if rec := recover(); rec != nil {
-            r.scenarioIsPending = true
+            if rec == "Pending" {
+                r.scenarioIsPending = true
+            } else {
+                panic(rec)
+            }
         }
     }()
 
-    givenMatch, _ := re.Compile(`(Given|When|Then|And|But|\*) (.*?)\s*$`)
-    scenarioMatch, _ := re.Compile(`Scenario:\s*(.*?)\s*$`)
-    featureMatch, _ := re.Compile(`Feature:\s*(.*?)\s*$`)
-    backgroundMatch, _ := re.Compile(`Background:`)
-    if s := givenMatch.FindStringSubmatch(line); !r.scenarioIsPending && s != nil && len(s) > 1 {
-        if !r.collectBackground {
-            r.executeFirstMatchingStep(s[2])
-        } else {
-            r.background = append(r.background, s[2])
-        }
-    } else if s := scenarioMatch.FindStringSubmatch(line); s != nil {
-        r.collectBackground = false
-        r.scenarios = append(r.scenarios, s[1])
-        r.scenarioIsPending = false
-        for _, bline := range r.background {
-            r.executeFirstMatchingStep(bline)
-        }
-    } else if s := featureMatch.FindStringSubmatch(line); s != nil {
-        r.Features = append(r.Features, s[1])
-    } else if s := backgroundMatch.FindStringSubmatch(line); s != nil {
+    if isStep, data := r.parseAsStep(line); isStep { 
+        r.executeStep(data)
+    } else if r.isScenarioLine(line) {
+        r.startScenario()
+    } else if r.isFeatureLine(line) { 
+        // Do Nothing!
+    } else if r.isBackgroundLine(line) {
         r.collectBackground = true
     }
 }
@@ -96,6 +155,7 @@ func (r *Runner) Execute(file string) {
     for _, line := range lines {
         r.step(line)
     }
+    r.callTearDown()
 }
 
 // Use this function to let the user know that this
