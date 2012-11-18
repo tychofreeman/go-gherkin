@@ -4,6 +4,7 @@ package gherkin
 import (
     re "regexp"
     "strings"
+    "fmt"
 )
 
 type stepdef struct {
@@ -151,6 +152,9 @@ func (r *Runner) parseAsMultiLineStep(line string) (bool, map[string]string) {
     if mlMatch.MatchString(line) {
         tmpFields := strings.Split(line, "|")
         fields := tmpFields[1:len(tmpFields)-1]
+        if len(fields) != len(r.keys) {
+            panic(fmt.Sprintf("Wrong number of fields in multi-line step [%v] - expected %d fields but found %d", line, len(r.keys), len(fields)))
+        }
         for i, f := range fields {
             fields[i] = strings.TrimSpace(f)
         }

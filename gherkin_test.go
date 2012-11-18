@@ -203,8 +203,29 @@ func TestPassesTableListToMultiLineStep(t *testing.T) {
     AssertThat(t, data, Equals(expectedList))
 }
 
+func TestErrorsIfTooFewFieldsInMultiLineStep(t *testing.T) {
+    var g Runner
+    wasGivenRun := false
+    wasThenRun := false
+    // Assertions before end of test...
+    defer func() {
+        recover()
+        AssertThat(t, wasGivenRun, IsFalse)
+        AssertThat(t, wasThenRun, IsFalse)
+    }()
+
+    g.RegisterMultiLine("given", func(t []map[string]string) { wasGivenRun = true })
+    g.Register("then", func() { wasThenRun = true })
+
+    g.Execute(`Feature:
+        Scenario:
+            Given given
+                |name|addr|
+                |bob|
+            Then then`)
+}
+
 // Need to introduce Scenario Outlines/Examples 
-// Need to support multi-line steps
 // Need to support regex params
 // Support PyStrings?
 // Support tags?
