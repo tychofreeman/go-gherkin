@@ -131,7 +131,22 @@ func (r *Runner) isFeatureLine(line string) bool {
     return false
 }
 
-func (r *Runner) parseAsMultiLineStep(line string) (bool, map[string]string {
+func (r *Runner) parseAsMultiLineStepHdr(line string) (bool, []string) {
+    if r.keys == nil {
+        mlMatch, _ := re.Compile(`^\s*\|.*\|\s*$`)
+        if mlMatch.MatchString(line) {
+            tmpFields := strings.Split(line, "|")
+            fields := tmpFields[1:len(tmpFields)-1]
+            for i, f := range fields {
+                fields[i] = strings.TrimSpace(f)
+            }
+            return true, fields
+        }
+    }
+    return false, nil
+}
+
+func (r *Runner) parseAsMultiLineStep(line string) (bool, map[string]string) {
     mlMatch, _ := re.Compile(`^\s*\|.*\|\s*$`)
     if mlMatch.MatchString(line) {
         tmpFields := strings.Split(line, "|")
@@ -139,15 +154,11 @@ func (r *Runner) parseAsMultiLineStep(line string) (bool, map[string]string {
         for i, f := range fields {
             fields[i] = strings.TrimSpace(f)
         }
-        if r.keys == nil {
-            r.keys = fields
-        } else {
-            l := make(map[string]string)
-            for i, k := range r.keys {
-                l[k] = fields[i]
-            }
-            return true,l
+        l := make(map[string]string)
+        for i, k := range r.keys {
+            l[k] = fields[i]
         }
+        return true,l
     }
     return false, nil
 }
@@ -193,6 +204,8 @@ func (r *Runner) step(line string) {
         // Do Nothing!
     } else if r.isBackgroundLine(line) {
         r.collectBackground = true
+    } else if is, data := r.parseAsMultiLineStepHdr(line); is {
+            r.keys = data
     } else if is, data := r.parseAsMultiLineStep(line); is {
             r.mlStep = append(r.mlStep, data)
     }
