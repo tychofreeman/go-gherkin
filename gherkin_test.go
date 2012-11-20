@@ -187,7 +187,7 @@ func TestCallsTearDownBeforeScenario(t *testing.T) {
 func TestPassesTableListToMultiLineStep(t *testing.T) {
     var g Runner
     var data []map[string]string
-    g.RegisterMultiLine(".", func(t []map[string]string) { data = t })
+    g.RegisterStepDef(".", func(w World) { data = w.multiStep })
     g.Execute(`Feature:
         Scenario:
             Then you should see these people
@@ -212,7 +212,7 @@ func TestErrorsIfTooFewFieldsInMultiLineStep(t *testing.T) {
         AssertThat(t, wasThenRun, IsFalse)
     }()
 
-    g.RegisterMultiLine("given", func(t []map[string]string) { wasGivenRun = true })
+    g.RegisterStepDef("given", func(w World) { wasGivenRun = true })
     g.RegisterStepDef("then", func(w World) { wasThenRun = true })
 
     g.Execute(`Feature:
@@ -227,8 +227,8 @@ func TestSupportsMultipleMultiLineStepsPerScenario(t *testing.T) {
     var g Runner
     var givenData []map[string]string
     var whenData []map[string]string
-    g.RegisterMultiLine("given", func(t []map[string]string) { givenData = t })
-    g.RegisterMultiLine("when", func(t []map[string]string) { whenData = t })
+    g.RegisterStepDef("given", func(w World) { givenData = w.multiStep })
+    g.RegisterStepDef("when", func(w World) { whenData = w.multiStep })
 
     g.Execute(`Feature:
         Scenario:

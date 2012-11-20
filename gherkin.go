@@ -26,17 +26,11 @@ func (w World) GetRegexParam() string {
 type stepdef struct {
     r *re.Regexp
     f func(World)
-    mlf func([]map[string]string)
 }
 
 func createstep(p string, f func(World)) stepdef {
     r, _ := re.Compile(p)
-    return stepdef{r, f, nil}
-}
-
-func createmlstep(p string, f func([]map[string]string)) stepdef {
-    r, _ := re.Compile(p)
-    return stepdef{r, nil, f}
+    return stepdef{r, f}
 }
 
 func (s stepdef) execute(line string, mlData []map[string]string) bool {
@@ -44,8 +38,6 @@ func (s stepdef) execute(line string, mlData []map[string]string) bool {
         if s.f != nil {
             substrs := s.r.FindStringSubmatch(line)
             s.f(World{regexParams:substrs, multiStep:mlData})
-        } else if s.mlf != nil {
-            s.mlf(mlData)
         }
         return true
     }
@@ -84,11 +76,6 @@ func CreateRunner() *Runner {
 // pattern and a function to execute.
 func (r *Runner) RegisterStepDef(pattern string, f func(World)) {
     r.steps = append(r.steps, createstep(pattern, f))
-}
-
-// Register a multi-line step definition
-func (r *Runner) RegisterMultiLine(pattern string, f func([]map[string]string)) {
-    r.steps = append(r.steps, createmlstep(pattern, f))
 }
 
 func (r *Runner) executeFirstMatchingStep() {
