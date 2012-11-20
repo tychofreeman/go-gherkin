@@ -7,13 +7,28 @@ import (
     "fmt"
 )
 
+// Passed to each step-definition
+type World struct {
+    regexParams []string
+    regexParamIndex int
+}
+
+// Allows access to step definition regular expression captures.
+func (w World) GetRegexParam() string {
+    w.regexParamIndex++
+    if w.regexParamIndex >= len(w.regexParams) {
+        panic("GetRegexParam() called too many times.")
+    }
+    return w.regexParams[w.regexParamIndex]
+}
+
 type stepdef struct {
     r *re.Regexp
-    f func()
+    f func(World)
     mlf func([]map[string]string)
 }
 
-func createstep(p string, f func()) stepdef {
+func createstep(p string, f func(World)) stepdef {
     r, _ := re.Compile(p)
     return stepdef{r, f, nil}
 }
@@ -26,7 +41,8 @@ func createmlstep(p string, f func([]map[string]string)) stepdef {
 func (s stepdef) execute(line string, mlData []map[string]string) bool {
     if s.r.MatchString(line) {
         if s.f != nil {
-            s.f()
+            substrs := s.r.FindStringSubmatch(line)
+            s.f(World{regexParams:substrs})
         } else if s.mlf != nil {
             s.mlf(mlData)
         }
@@ -65,7 +81,7 @@ func CreateRunner() *Runner {
 
 // Register a step definition. This requires a regular expression
 // pattern and a function to execute.
-func (r *Runner) Register(pattern string, f func()) {
+func (r *Runner) RegisterStepDef(pattern string, f func(World)) {
     r.steps = append(r.steps, createstep(pattern, f))
 }
 
@@ -77,6 +93,8 @@ func (r *Runner) RegisterMultiLine(pattern string, f func([]map[string]string)) 
 func (r *Runner) executeFirstMatchingStep() {
     defer func() {
         r.prevStep = ""
+        r.keys = nil
+        r.mlStep = []map[string]string{}
         if rec := recover(); rec != nil {
             if rec == "Pending" {
                 r.scenarioIsPending = true

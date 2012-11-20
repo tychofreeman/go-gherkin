@@ -3,7 +3,6 @@ package gherkin
 import (
     "testing"
     . "github.com/tychofreeman/go-matchers"
-    "fmt"
 )
 
 var featureText = `Feature: My Feature
@@ -20,12 +19,12 @@ var featureText = `Feature: My Feature
 
 func assertMatchCalledOrNot(t *testing.T, step string, pattern string, isCalled bool) {
         wasCalled := false
-        f := func() {
+        f := func(w World) {
             wasCalled = true
         }
 
         var g Runner
-        g.Register(pattern, f)
+        g.RegisterStepDef(pattern, f)
 
         g.Execute(step)
         AssertThat(t, wasCalled, Equals(isCalled))
@@ -49,14 +48,14 @@ func TestAvoidsNonMatchingMethod(t *testing.T) {
 
 func TestCallsOnlyFirstMatchingMethod(t *testing.T) {
     wasCalled := false
-    first := func() { }
-    second := func() {
+    first := func(w World) { }
+    second := func(w World) {
         wasCalled = true
     }
 
     var g Runner
-    g.Register(".", first)
-    g.Register(".", second)
+    g.RegisterStepDef(".", first)
+    g.RegisterStepDef(".", second)
     g.Execute("Given only the first step is called")
     AssertThat(t, wasCalled, Equals(false))
 }
@@ -97,12 +96,12 @@ func TestMultipleStepsAreCalled(t *testing.T) {
     var g Runner
 
     firstWasCalled := false
-    g.Register("^the first setup$", func() {
+    g.RegisterStepDef("^the first setup$", func(w World) {
         firstWasCalled = true
     })
 
     secondWasCalled := false
-    g.Register("^the first action$", func() {
+    g.RegisterStepDef("^the first action$", func(w World) {
         secondWasCalled = true
     })
 
@@ -114,9 +113,9 @@ func TestMultipleStepsAreCalled(t *testing.T) {
 func TestTellsNumberOfStepsExecuted(t *testing.T) {
     var g Runner
 
-    g.Register("^the first setup$", func() {})
-    g.Register("^the first action$", func() {})
-    g.Register("^the first result$", func() {})
+    g.RegisterStepDef("^the first setup$", func(w World) {})
+    g.RegisterStepDef("^the first action$", func(w World) {})
+    g.RegisterStepDef("^the first result$", func(w World) {})
 
     g.Execute(featureText)
     AssertThat(t, g.StepCount, Equals(3))
@@ -125,9 +124,9 @@ func TestTellsNumberOfStepsExecuted(t *testing.T) {
 func TestPendingSkipsTests(t *testing.T) {
     var g Runner
 
-    g.Register("^the first setup$", func() { Pending() })
+    g.RegisterStepDef("^the first setup$", func(w World) { Pending() })
     actionWasCalled := false
-    g.Register("^the first action$", func() { actionWasCalled = true; fmt.Printf("***THIS*SHOULD*NOT*HAPPEN***\n") })
+    g.RegisterStepDef("^the first action$", func(w World) { actionWasCalled = true })
 
     g.Execute(featureText)
     AssertThat(t, actionWasCalled, Equals(false))
@@ -136,10 +135,10 @@ func TestPendingSkipsTests(t *testing.T) {
 func TestPendingDoesntSkipSecondScenario(t *testing.T) {
     var g Runner
 
-    g.Register("^the first setup$", func() { Pending() })
-    g.Register("^the second setup$", func() { } )
+    g.RegisterStepDef("^the first setup$", func(w World) { Pending() })
+    g.RegisterStepDef("^the second setup$", func(w World) { } )
     secondActionCalled := false
-    g.Register("^the second action$", func() { secondActionCalled = true })
+    g.RegisterStepDef("^the second action$", func(w World) { secondActionCalled = true })
 
     g.Execute(featureText)
     AssertThat(t, secondActionCalled, Equals(true))
@@ -148,7 +147,7 @@ func TestPendingDoesntSkipSecondScenario(t *testing.T) {
 func TestBackgroundIsRunBeforeEachScenario(t *testing.T) {
     var g Runner
     wasCalled := false
-    g.Register("^background$", func() { wasCalled = true })
+    g.RegisterStepDef("^background$", func(w World) { wasCalled = true })
     g.Execute(`Feature: 
         Background:
             Given background
@@ -165,7 +164,7 @@ func TestCallsSeUptBeforeScenario(t *testing.T) {
     g.SetSetUpFn(func() { setUpWasCalled = true })
 
     setUpCalledBeforeStep := false
-    g.Register(".", func() { setUpCalledBeforeStep = setUpWasCalled })
+    g.RegisterStepDef(".", func(w World) { setUpCalledBeforeStep = setUpWasCalled })
     g.Execute(`Feature:
         Scenario:
             Then this`)
@@ -196,11 +195,10 @@ func TestPassesTableListToMultiLineStep(t *testing.T) {
                 |Bob |bob@bob.com|
     `)
 
-    expectedMap := map[string]string{}
-    expectedMap["name"] = "Bob"
-    expectedMap["email"] = "bob@bob.com"
-    expectedList := []map[string]string{expectedMap}
-    AssertThat(t, data, Equals(expectedList))
+    expectedData := []map[string]string{
+        map[string]string{"name":"Bob", "email":"bob@bob.com"},
+    }
+    AssertThat(t, data, Equals(expectedData))
 }
 
 func TestErrorsIfTooFewFieldsInMultiLineStep(t *testing.T) {
@@ -215,7 +213,7 @@ func TestErrorsIfTooFewFieldsInMultiLineStep(t *testing.T) {
     }()
 
     g.RegisterMultiLine("given", func(t []map[string]string) { wasGivenRun = true })
-    g.Register("then", func() { wasThenRun = true })
+    g.RegisterStepDef("then", func(w World) { wasThenRun = true })
 
     g.Execute(`Feature:
         Scenario:
@@ -223,6 +221,67 @@ func TestErrorsIfTooFewFieldsInMultiLineStep(t *testing.T) {
                 |name|addr|
                 |bob|
             Then then`)
+}
+
+func TestSupportsMultipleMultiLineStepsPerScenario(t *testing.T) {
+    var g Runner
+    var givenData []map[string]string
+    var whenData []map[string]string
+    g.RegisterMultiLine("given", func(t []map[string]string) { givenData = t })
+    g.RegisterMultiLine("when", func(t []map[string]string) { whenData = t })
+
+    g.Execute(`Feature:
+        Scenario:
+            Given given
+                |name|email|
+                |Bob|bob@bob.com|
+                |Jim|jim@jim.com|
+            When when
+                |breed|height|
+                |wolf|2|
+                |shihtzu|.5|
+    `)
+
+    expectedGivenData := []map[string]string{
+        map[string]string{ "name":"Bob", "email":"bob@bob.com"},
+        map[string]string{ "name":"Jim", "email":"jim@jim.com"},
+    }
+
+    expectedWhenData := []map[string]string{
+        map[string]string{"breed":"wolf", "height":"2"},
+        map[string]string{"breed":"shihtzu", "height":".5"},
+    }
+    
+    AssertThat(t, givenData, Equals(expectedGivenData))
+    AssertThat(t, whenData, Equals(expectedWhenData))
+}
+
+func TestAllowsAccessToFirstRegexCapture(t *testing.T) {
+    var g Runner
+    captured := ""
+    g.RegisterStepDef("(thing)", func(w World) { captured = w.GetRegexParam() })
+    g.Execute(`Feature:
+        Scenario:
+            Given thing
+    `)
+
+    AssertThat(t, captured, Equals("thing"))
+}
+
+func TestFailsGracefullyWithOutOfBoundsRegexCaptures(t *testing.T) {
+    var g Runner
+    g.RegisterStepDef(".", func(w World) { w.GetRegexParam() })
+
+    defer func() {
+        r := recover()
+        AssertThat(t, r, Equals("GetRegexParam() called too many times."))
+    }()
+
+    g.Execute(`Feature:
+        Scenario:
+            Given .
+    `)
+
 }
 
 // Need to introduce Scenario Outlines/Examples 
