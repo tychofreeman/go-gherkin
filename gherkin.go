@@ -11,6 +11,7 @@ import (
 type World struct {
     regexParams []string
     regexParamIndex int
+    multiStep []map[string]string
 }
 
 // Allows access to step definition regular expression captures.
@@ -42,7 +43,7 @@ func (s stepdef) execute(line string, mlData []map[string]string) bool {
     if s.r.MatchString(line) {
         if s.f != nil {
             substrs := s.r.FindStringSubmatch(line)
-            s.f(World{regexParams:substrs})
+            s.f(World{regexParams:substrs, multiStep:mlData})
         } else if s.mlf != nil {
             s.mlf(mlData)
         }
