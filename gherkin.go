@@ -90,7 +90,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    return &Runner{make([]stepdef, 1), 0, false, make([]string, 0), false, nil, nil, nil, []map[string]string{}, nil, -1, [][]string{}}
+    return &Runner{[]stepdef{}, 0, false, []string{}, false, nil, nil, nil, []map[string]string{}, nil, -1, [][]string{}}
 }
 
 // Register a step definition. This requires a regular expression
@@ -99,10 +99,13 @@ func (r *Runner) RegisterStepDef(pattern string, f func(World)) {
     r.steps = append(r.steps, createstep(pattern, f))
 }
 
-func (r *Runner) resetAndRecover() {
+func (r *Runner) reset() {
     r.resetStepLine()
     r.keys = nil
     r.mlStep = []map[string]string{}
+}
+
+func (r *Runner) recover() {
     if rec := recover(); rec != nil {
         if rec == "Pending" {
             r.scenarioIsPending = true
@@ -113,7 +116,7 @@ func (r *Runner) resetAndRecover() {
 }
 
 func (r *Runner) executeStepDef(currStep string) {
-    defer r.resetAndRecover()
+    defer r.recover()
     for _, step := range r.steps {
         if step.execute(currStep, r.mlStep) {
             r.StepCount++
@@ -125,6 +128,7 @@ func (r *Runner) executeStepDef(currStep string) {
 func (r *Runner) executeFirstMatchingStep() {
     currStep := r.currStepLine()
 
+    defer r.reset()
     if r.hasOutstandingStep() {
         r.executeStepDef(currStep)
     }
@@ -221,17 +225,11 @@ func (r *Runner) startScenario() {
     r.callTearDown()
     r.collectBackground = false
     r.scenarioIsPending = false
-    r.scenarios = append(r.scenarios, []string{})
+    r.currScenario = []string{}
+    r.scenarios = append(r.scenarios, r.currScenario)
     r.callSetUp()
     for _, bline := range r.background {
-        r.addStepLine(bline)
-        r.executeFirstMatchingStep()
-    }
-}
-
-func (r *Runner) executePrevScenario() {
-    for _, line := range r.currScenario {
-        r.executeStepDef(line)
+        r.executeStepDef(bline)
     }
 }
 
