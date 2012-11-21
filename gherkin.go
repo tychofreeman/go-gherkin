@@ -52,9 +52,29 @@ type Runner struct {
     collectBackground bool
     setUp func()
     tearDown func()
-    prevStep string
     keys []string
     mlStep []map[string]string
+    currScenario []string
+    lastExecutedIndex int
+}
+
+func (r *Runner) addStepLine(line string) {
+    r.currScenario = append(r.currScenario, line)
+}
+
+func (r *Runner) currStepLine() string {
+    if len(r.currScenario) > 0 {
+        return r.currScenario[len(r.currScenario) - 1]
+    }
+    return ""
+}
+
+func (r *Runner) resetStepLine() {
+    r.lastExecutedIndex = len(r.currScenario)
+}
+
+func (r *Runner) hasOutstandingStep() bool {
+    return r.lastExecutedIndex < len(r.currScenario)
 }
 
 // Register a set-up function to be called at the beginning of each scenario
@@ -69,7 +89,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    return &Runner{make([]stepdef, 1), 0, false, make([]string, 0), false, nil, nil, "", nil, []map[string]string{}}
+    return &Runner{make([]stepdef, 1), 0, false, make([]string, 0), false, nil, nil, nil, []map[string]string{}, nil, -1}
 }
 
 // Register a step definition. This requires a regular expression
@@ -78,27 +98,34 @@ func (r *Runner) RegisterStepDef(pattern string, f func(World)) {
     r.steps = append(r.steps, createstep(pattern, f))
 }
 
-func (r *Runner) executeFirstMatchingStep() {
-    defer func() {
-        r.prevStep = ""
-        r.keys = nil
-        r.mlStep = []map[string]string{}
-        if rec := recover(); rec != nil {
-            if rec == "Pending" {
-                r.scenarioIsPending = true
-            } else {
-                panic(rec)
-            }
+func (r *Runner) resetAndRecover() {
+    r.resetStepLine()
+    r.keys = nil
+    r.mlStep = []map[string]string{}
+    if rec := recover(); rec != nil {
+        if rec == "Pending" {
+            r.scenarioIsPending = true
+        } else {
+            panic(rec)
         }
-    }()
-    if r.prevStep == "" {
-        return
     }
+}
+
+func (r *Runner) executeStepDef(currStep string) {
+    defer r.resetAndRecover()
     for _, step := range r.steps {
-        if step.execute(r.prevStep, r.mlStep) {
+        if step.execute(currStep, r.mlStep) {
             r.StepCount++
             return
         }
+    }
+}
+
+func (r *Runner) executeFirstMatchingStep() {
+    currStep := r.currStepLine()
+
+    if r.hasOutstandingStep() {
+        r.executeStepDef(currStep)
     }
 }
 
@@ -185,7 +212,7 @@ func (r *Runner) executeStep(line string) {
     if r.collectBackground {
         r.background = append(r.background, line)
     } else {
-        r.prevStep = line
+        r.addStepLine(line)
     }
 }
 
@@ -195,7 +222,7 @@ func (r *Runner) startScenario() {
     r.scenarioIsPending = false
     r.callSetUp()
     for _, bline := range r.background {
-        r.prevStep = bline
+        r.addStepLine(bline)
         r.executeFirstMatchingStep()
     }
 }
