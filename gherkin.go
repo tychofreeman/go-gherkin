@@ -182,10 +182,10 @@ func (r *Runner) isBackgroundLine(line string) bool {
 }
 
 func (r *Runner) executeStep(line string) {
-    if !r.collectBackground {
-        r.prevStep = line
-    } else {
+    if r.collectBackground {
         r.background = append(r.background, line)
+    } else {
+        r.prevStep = line
     }
 }
 
@@ -210,7 +210,7 @@ func (r *Runner) step(line string) {
     } else if r.isScenarioLine(line) {
         r.executeFirstMatchingStep()
         r.startScenario()
-    } else if r.isFeatureLine(line) { 
+    } else if r.isFeatureLine(line) {
         // Do Nothing!
     } else if r.isBackgroundLine(line) {
         r.collectBackground = true

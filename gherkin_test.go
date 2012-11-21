@@ -284,8 +284,33 @@ func TestFailsGracefullyWithOutOfBoundsRegexCaptures(t *testing.T) {
 
 }
 
+func DISABLED_TestOnlyExecutesStepsBelowScenarioLine(t *testing.T) {
+    var g Runner
+    wasRun := false
+    g.RegisterStepDef(".", func(w World) { wasRun = true })
+    g.Execute(`Feature:
+        Given .`)
+
+    AssertThat(t, wasRun, IsFalse)
+}
+
+func DISABLED_TestExecutesScenarioOncePerLineInExample(t *testing.T) {
+    var g Runner
+    timesRun := 0
+    g.RegisterStepDef(".", func(w World) { timesRun++ })
+    g.Execute(`Feature:
+        Scenario Outline:
+            Given .
+        Examples:
+            |scenario num|
+            |first|
+            |second|
+    `)
+
+    AssertThat(t, timesRun, Equals(2))
+}
+
 // Need to introduce Scenario Outlines/Examples 
-// Need to support regex params
 // Support PyStrings?
 // Support tags?
 // Support reporting.
