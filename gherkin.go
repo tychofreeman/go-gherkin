@@ -56,6 +56,7 @@ type Runner struct {
     mlStep []map[string]string
     currScenario []string
     lastExecutedIndex int
+    scenarios [][]string
 }
 
 func (r *Runner) addStepLine(line string) {
@@ -89,7 +90,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    return &Runner{make([]stepdef, 1), 0, false, make([]string, 0), false, nil, nil, nil, []map[string]string{}, nil, -1}
+    return &Runner{make([]stepdef, 1), 0, false, make([]string, 0), false, nil, nil, nil, []map[string]string{}, nil, -1, [][]string{}}
 }
 
 // Register a step definition. This requires a regular expression
@@ -220,6 +221,7 @@ func (r *Runner) startScenario() {
     r.callTearDown()
     r.collectBackground = false
     r.scenarioIsPending = false
+    r.scenarios = append(r.scenarios, []string{})
     r.callSetUp()
     for _, bline := range r.background {
         r.addStepLine(bline)
