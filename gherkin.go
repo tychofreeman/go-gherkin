@@ -213,7 +213,7 @@ func (r *Runner) isBackgroundLine(line string) bool {
     return false
 }
 
-func (r *Runner) executeStep(line string) {
+func (r *Runner) addStepLine(line string) {
     if r.collectBackground {
         r.background = append(r.background, line)
     } else {
@@ -238,7 +238,7 @@ func (r *Runner) step(line string) {
         r.executeFirstMatchingStep()
         // If the previous step didn't make us pending, go ahead and execute the new one when appropriate
         if !r.scenarioIsPending {
-            r.executeStep(data)
+            r.addStepLine(data)
         }
     } else if r.isScenarioLine(line) {
         r.executeFirstMatchingStep()
