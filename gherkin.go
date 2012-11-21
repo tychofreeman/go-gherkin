@@ -227,15 +227,18 @@ func (r *Runner) startScenario() {
     }
 }
 
+func (r *Runner) executePrevScenario() {
+    for _, line := range r.currScenario {
+        r.executeStepDef(line)
+    }
+}
+
 func (r *Runner) step(line string) {
     if isStep, data := r.parseAsStep(line); isStep { 
-        r.executeFirstMatchingStep()
         // If the previous step didn't make us pending, go ahead and execute the new one when appropriate
-        if !r.scenarioIsPending {
-            r.executeStep(data)
-        }
+        r.executeStep(data)
     } else if r.isScenarioLine(line) {
-        r.executeFirstMatchingStep()
+        r.executePrevScenario()
         r.startScenario()
     } else if r.isFeatureLine(line) {
         // Do Nothing!
@@ -255,7 +258,7 @@ func (r *Runner) Execute(file string) {
     for _, line := range lines {
         r.step(line)
     }
-    r.executeFirstMatchingStep()
+    r.executePrevScenario()
     r.callTearDown()
 }
 
