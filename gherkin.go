@@ -33,41 +33,62 @@ func createstep(p string, f func(World)) stepdef {
     return stepdef{r, f}
 }
 
-func (s stepdef) execute(line string, mlData []map[string]string) bool {
-    if s.r.MatchString(line) {
+func (s stepdef) execute(line step, mlData []map[string]string) bool {
+    if s.r.MatchString(line.String()) {
         if s.f != nil {
-            substrs := s.r.FindStringSubmatch(line)
-            s.f(World{regexParams:substrs, multiStep:mlData})
+            substrs := s.r.FindStringSubmatch(line.String())
+            s.f(World{regexParams:substrs, multiStep:line.mldata})
         }
         return true
     }
     return false
 }
 
+type step struct {
+    line string
+    keys []string
+    mldata []map[string]string
+}
+func (s step) String() string {
+    return s.line
+}
+func StepFromString(in string) step{
+    return step{ line : in, keys: []string{}, mldata : []map[string]string{} }
+}
+func (s *step) addMlData(line map[string]string) {
+    s.mldata = append(s.mldata, line)
+}
+
+func (s *step) setMlKeys(keys []string) {
+    s.keys = keys
+}
+
+type scenario []step
+
 type Runner struct {
     steps []stepdef
     StepCount int
     scenarioIsPending bool
-    background []string
+    background scenario
     collectBackground bool
     setUp func()
     tearDown func()
     keys []string
     mlStep []map[string]string
-    currScenario []string
+    currScenario scenario
     lastExecutedIndex int
-    scenarios [][]string
+    scenarios []scenario
 }
 
 func (r *Runner) addStepLine(line string) {
-    r.currScenario = append(r.currScenario, line)
+    r.currScenario = append(r.currScenario, StepFromString(line))
 }
 
-func (r *Runner) currStepLine() string {
+func (r *Runner) currStepLine() step {
     if len(r.currScenario) > 0 {
         return r.currScenario[len(r.currScenario) - 1]
     }
-    return ""
+    return StepFromString("")
 }
 
 func (r *Runner) resetStepLine() {
@@ -90,7 +111,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    return &Runner{[]stepdef{}, 0, false, []string{}, false, nil, nil, nil, []map[string]string{}, nil, -1, [][]string{}}
+    return &Runner{[]stepdef{}, 0, false, scenario{}, false, nil, nil, nil, []map[string]string{}, nil, -1, []scenario{}}
 }
 
 // Register a step definition. This requires a regular expression
@@ -115,7 +136,7 @@ func (r *Runner) recover() {
     }
 }
 
-func (r *Runner) executeStepDef(currStep string) {
+func (r *Runner) executeStepDef(currStep step) {
     defer r.recover()
     for _, step := range r.steps {
         if step.execute(currStep, r.mlStep) {
@@ -170,39 +191,24 @@ func (r *Runner) isFeatureLine(line string) bool {
     return false
 }
 
-func (r *Runner) parseAsMultiLineStepHdr(line string) (bool, []string) {
-    if r.keys == nil {
-        mlMatch, _ := re.Compile(`^\s*\|.*\|\s*$`)
-        if mlMatch.MatchString(line) {
-            tmpFields := strings.Split(line, "|")
-            fields := tmpFields[1:len(tmpFields)-1]
-            for i, f := range fields {
-                fields[i] = strings.TrimSpace(f)
-            }
-            return true, fields
-        }
-    }
-    return false, nil
-}
-
-func (r *Runner) parseAsMultiLineStep(line string) (bool, map[string]string) {
+func parseTableLine(line string) (fields []string) {
     mlMatch, _ := re.Compile(`^\s*\|.*\|\s*$`)
     if mlMatch.MatchString(line) {
         tmpFields := strings.Split(line, "|")
-        fields := tmpFields[1:len(tmpFields)-1]
-        if len(fields) != len(r.keys) {
-            panic(fmt.Sprintf("Wrong number of fields in multi-line step [%v] - expected %d fields but found %d", line, len(r.keys), len(fields)))
-        }
+        fields = tmpFields[1:len(tmpFields)-1]
         for i, f := range fields {
             fields[i] = strings.TrimSpace(f)
         }
-        l := make(map[string]string)
-        for i, k := range r.keys {
-            l[k] = fields[i]
-        }
-        return true,l
     }
-    return false, nil
+    return
+}
+
+func createTableMap(keys []string, fields []string) (l map[string]string) {
+    l = map[string]string{}
+    for i, k := range keys {
+        l[k] = fields[i]
+    }
+    return
 }
 
 func (r *Runner) isBackgroundLine(line string) bool {
@@ -213,9 +219,9 @@ func (r *Runner) isBackgroundLine(line string) bool {
     return false
 }
 
-func (r *Runner) addStepLine(line string) {
+func (r *Runner) executeStep(line string) {
     if r.collectBackground {
-        r.background = append(r.background, line)
+        r.background = append(r.background, StepFromString(line))
     } else {
         r.addStepLine(line)
     }
@@ -225,7 +231,7 @@ func (r *Runner) startScenario() {
     r.callTearDown()
     r.collectBackground = false
     r.scenarioIsPending = false
-    r.currScenario = []string{}
+    r.currScenario = scenario{}
     r.scenarios = append(r.scenarios, r.currScenario)
     r.callSetUp()
     for _, bline := range r.background {
@@ -233,12 +239,31 @@ func (r *Runner) startScenario() {
     }
 }
 
+func (r *Runner) executeLastScenario() {
+    for _, line := range r.currScenario {
+        if !r.scenarioIsPending {
+            r.executeStepDef(line)
+        }
+    }
+}
+
+func (r *Runner) setMlKeys(data []string) {
+    r.keys = data
+    r.currScenario[len(r.currScenario)-1].setMlKeys(data)
+}
+
+func (r *Runner) addMlStep(data map[string]string) {
+    r.mlStep = append(r.mlStep, data)
+    r.currScenario[len(r.currScenario)-1].addMlData(data)
+}
+
 func (r *Runner) step(line string) {
-    if isStep, data := r.parseAsStep(line); isStep { 
+    fields := parseTableLine(line)
+    if isStep, data := r.parseAsStep(line); isStep {
         r.executeFirstMatchingStep()
         // If the previous step didn't make us pending, go ahead and execute the new one when appropriate
         if !r.scenarioIsPending {
-            r.addStepLine(data)
+            r.executeStep(data)
         }
     } else if r.isScenarioLine(line) {
         r.executeFirstMatchingStep()
@@ -247,10 +272,16 @@ func (r *Runner) step(line string) {
         // Do Nothing!
     } else if r.isBackgroundLine(line) {
         r.collectBackground = true
-    } else if is, data := r.parseAsMultiLineStepHdr(line); is {
-            r.keys = data
-    } else if is, data := r.parseAsMultiLineStep(line); is {
-            r.mlStep = append(r.mlStep, data)
+    } else if len(fields) > 0 {
+        s := r.currScenario[len(r.currScenario)-1]
+        if len(s.keys) == 0 {
+            r.setMlKeys(fields)
+        } else if len(fields) != len(s.keys) {
+            panic(fmt.Sprintf("Wrong number of fields in multi-line step [%v] - expected %d fields but found %d", line, len(r.keys), len(fields)))
+        } else if len(fields) > 0 {
+            l := createTableMap(s.keys, fields)
+            r.addMlStep(l)
+        }
     }
 }
 
