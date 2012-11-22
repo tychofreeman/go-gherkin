@@ -93,7 +93,7 @@ func (r *Runner) addStepLine(line string) {
 }
 
 func (r *Runner) currStepLine() step {
-    l := r.currScenario.last()
+    l := r.currStep()
     if l == nil {
         return StepFromString("")
     }
@@ -121,7 +121,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
     s := []scenario{scenario{}}
-    return &Runner{[]stepdef{}, 0, false, scenario{}, false, nil, nil, nil, &s[0], -1, s}
+    return &Runner{[]stepdef{}, 0, false, scenario{}, false, nil, nil, nil, nil, -1, s}
 }
 
 // Register a step definition. This requires a regular expression
@@ -167,7 +167,7 @@ func (r *Runner) callTearDown() {
 }
 
 func (r *Runner) parseAsStep(line string) (bool, string) {
-    givenMatch, _ := re.Compile(`(Given|When|Then|And|But|\*) (.*?)\s*$`)
+    givenMatch, _ := re.Compile(`^\s*(Given|When|Then|And|But|\*) (.*?)\s*$`)
     if s := givenMatch.FindStringSubmatch(line); s != nil && len(s) > 1 {
         return true, s[2]
     }
@@ -175,7 +175,7 @@ func (r *Runner) parseAsStep(line string) (bool, string) {
 }
 
 func (r *Runner) isScenarioLine(line string) (bool) {
-    scenarioMatch, _ := re.Compile(`Scenario:\s*(.*?)\s*$`)
+    scenarioMatch, _ := re.Compile(`^\s*Scenario:\s*(.*?)\s*$`)
     if s := scenarioMatch.FindStringSubmatch(line); s != nil {
         return true
     }
@@ -234,32 +234,40 @@ func (r *Runner) startScenario() {
     }
 }
 
+func (r *Runner) currStep() *step {
+    if r.currScenario != nil {
+        return r.currScenario.last()
+    }
+    return nil
+}
+
 
 func (r *Runner) setMlKeys(data []string) {
-    r.currScenario.last().setMlKeys(data)
+    r.currStep().setMlKeys(data)
 }
 
 func (r *Runner) addMlStep(data map[string]string) {
-    r.currScenario.last().addMlData(data)
+    r.currStep().addMlData(data)
 }
 
 func (r *Runner) step(line string) {
+    fmt.Printf("Stepping on line %v\n", line)
     fields := parseTableLine(line)
-    if isStep, data := r.parseAsStep(line); isStep {
+    isStep, data := r.parseAsStep(line)
+    if r.collectBackground && isStep {
         // If the previous step didn't make us pending, go ahead and execute the new one when appropriate
-        if r.collectBackground {
-            r.background.steps = append(r.background.steps, StepFromString(data))
-        } else {
-            r.addStepLine(data)
-        }
+        r.background.steps = append(r.background.steps, StepFromString(data))
+    } else if r.currScenario != nil && isStep {
+        r.addStepLine(data)
     } else if r.isScenarioLine(line) {
+        fmt.Printf("Starting Scenario...\n")
         r.startScenario()
     } else if r.isFeatureLine(line) {
         // Do Nothing!
     } else if r.isBackgroundLine(line) {
         r.collectBackground = true
-    } else if len(fields) > 0 {
-        s := *r.currScenario.last()
+    } else if r.currStep() != nil && len(fields) > 0 {
+        s := *r.currStep()
         if len(s.keys) == 0 {
             r.setMlKeys(fields)
         } else if len(fields) != len(s.keys) {
@@ -274,6 +282,7 @@ func (r *Runner) step(line string) {
 // Once the step definitions are Register()'d, use Execute() to
 // parse and execute Gherkin data.
 func (r *Runner) Execute(file string) {
+    fmt.Printf("Execute: [%v]\n", file)
     lines := strings.Split(file, "\n")
     for _, line := range lines {
         r.step(line)

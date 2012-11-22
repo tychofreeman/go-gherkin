@@ -10,25 +10,30 @@ var featureText = `Feature: My Feature
         Given the first setup
         When the first action
         Then the first result
+        But not the other first result
     Scenario: Scenario 2
         Given the second setup
         When the second action
         Then the second result
         And the other second result
+    Scenario: Scenario 3
+        * the third setup
+        When     the third action has leading spaces
+        When the third action has trailing spaces               
     This is ignored`
 
 func assertMatchCalledOrNot(t *testing.T, step string, pattern string, isCalled bool) {
-        wasCalled := false
-        f := func(w World) {
-            wasCalled = true
-        }
-
-        g := CreateRunner()
-        g.RegisterStepDef(pattern, f)
-
-        g.Execute(step)
-        AssertThat(t, wasCalled, Equals(isCalled))
+    wasCalled := false
+    f := func(w World) {
+        wasCalled = true
     }
+
+    g := CreateRunner()
+    g.RegisterStepDef(pattern, f)
+
+    g.Execute(step)
+    AssertThat(t, wasCalled, Equals(isCalled))
+}
 
 func matchingFunctionIsCalled(t *testing.T, step string, pattern string) {
     assertMatchCalledOrNot(t, step, pattern, true)
@@ -39,11 +44,11 @@ func matchingFunctionIsNotCalled(t *testing.T, step string, pattern string) {
 }
 
 func TestExecutesMatchingMethod(t *testing.T) {
-    matchingFunctionIsCalled(t, "Given this step is called", ".")
+    matchingFunctionIsCalled(t, featureText, ".")
 }
 
 func TestAvoidsNonMatchingMethod(t *testing.T) {
-    matchingFunctionIsNotCalled(t, "Given this step is not called", "^A")
+    matchingFunctionIsNotCalled(t, featureText, "^A")
 }
 
 func TestCallsOnlyFirstMatchingMethod(t *testing.T) {
@@ -61,35 +66,35 @@ func TestCallsOnlyFirstMatchingMethod(t *testing.T) {
 }
 
 func TestRemovesGivenFromMatchLine(t *testing.T) {
-    matchingFunctionIsCalled(t, "Given this is a given", "^this is a given$")
+    matchingFunctionIsCalled(t, featureText, "^the first setup$")
 }
 
 func TestRemovesWhenFromMatchLine(t *testing.T) {
-    matchingFunctionIsCalled(t, "When this is a when", "^this is a when$")
+    matchingFunctionIsCalled(t, featureText, "^the first action$")
 }
 
 func TestRemovesThenFromMatchLine(t *testing.T) {
-    matchingFunctionIsCalled(t, "Then this is a then", "^this is a then$")
+    matchingFunctionIsCalled(t, featureText, "^the first result$")
 }
 
 func TestRemovesAndFromMatchLine(t *testing.T) {
-    matchingFunctionIsCalled(t, "And this is an and", "^this is an and$")
+    matchingFunctionIsCalled(t, featureText, "^the other second result$")
 }
 
 func TestRemovesButFromMatchLine(t *testing.T) {
-    matchingFunctionIsCalled(t, "But this is a but", "^this is a but$")
+    matchingFunctionIsCalled(t, featureText, "^not the other first result$")
 }
 
 func TestRemovesStarFromMatchLine(t *testing.T) {
-    matchingFunctionIsCalled(t, "* this is a star", "^this is a star$")
+    matchingFunctionIsCalled(t, featureText, "^the third setup$")
 }
 
 func TestRemovesLeadingSpacesFromMatchLine(t *testing.T) {
-    matchingFunctionIsCalled(t, "    Then we remove leading spaces", "^we remove leading spaces$")
+    matchingFunctionIsCalled(t, featureText, "^the third action has leading spaces$")
 }
 
 func TestRemovesTrailingSpacesFromMatchLine(t *testing.T) {
-    matchingFunctionIsCalled(t, "Then we remove trailing spaces   ", "^we remove trailing spaces$")
+    matchingFunctionIsCalled(t, featureText, "^the third action has trailing spaces$")
 }
 
 func TestMultipleStepsAreCalled(t *testing.T) {
@@ -294,7 +299,19 @@ func DISABLED_TestOnlyExecutesStepsBelowScenarioLine(t *testing.T) {
     AssertThat(t, wasRun, IsFalse)
 }
 
-func DISABLED_TestExecutesScenarioOncePerLineInExample(t *testing.T) {
+func TestScenarioOutlineWithoutExampleDoesNotExecute(t *testing.T) {
+    g := CreateRunner()
+    wasRun := false
+    g.RegisterStepDef(".", func(w World) { wasRun = true})
+    g.Execute(`Feature:
+        Scenario Outline:
+            Given .
+    `)
+
+    AssertThat(t, wasRun, IsFalse)
+}
+
+func TestExecutesScenarioOncePerLineInExample(t *testing.T) {
     g := CreateRunner()
     timesRun := 0
     g.RegisterStepDef(".", func(w World) { timesRun++ })
