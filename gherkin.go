@@ -174,17 +174,16 @@ func (r *Runner) parseAsStep(line string) (bool, string) {
     return false, ""
 }
 
+func (r *Runner) isScenarioOutline(line string) bool {
+    return lineMatches(`^\s*Scenario Outline:\s*(.*?)\s*$`, line)
+}
+
 func (r *Runner) isScenarioLine(line string) (bool) {
-    scenarioMatch, _ := re.Compile(`^\s*Scenario:\s*(.*?)\s*$`)
-    if s := scenarioMatch.FindStringSubmatch(line); s != nil {
-        return true
-    }
-    return false
+    return lineMatches(`^\s*Scenario:\s*(.*?)\s*$`, line)
 }
 
 func (r *Runner) isFeatureLine(line string) bool {
-    spec := `Feature:\s*(.*?)\s*$`
-    return lineMatches(spec, line)
+    return lineMatches(`Feature:\s*(.*?)\s*$`, line)
 }
 func (r *Runner) isBackgroundLine(line string) bool {
     return lineMatches(`^\s*Background:`, line)
@@ -218,20 +217,21 @@ func createTableMap(keys []string, fields []string) (l map[string]string) {
     return
 }
 
-func (r *Runner) executeStep(line string) {
+func (r *Runner) startScenarioOutline() {
+}
+
+func (r *Runner) runBackground() {
+    for _, bline := range r.background.steps {
+        r.executeStepDef(bline)
+    }
 }
 
 func (r *Runner) startScenario() {
-    r.callTearDown()
     r.collectBackground = false
     r.scenarioIsPending = false
     r.collectBackground = false
     r.scenarios = append(r.scenarios, scenario{})
     r.currScenario = &r.scenarios[len(r.scenarios)-1]
-    r.callSetUp()
-    for _, bline := range r.background.steps {
-        r.executeStepDef(bline)
-    }
 }
 
 func (r *Runner) currStep() *step {
@@ -258,6 +258,8 @@ func (r *Runner) step(line string) {
         r.background.steps = append(r.background.steps, StepFromString(data))
     } else if r.currScenario != nil && isStep {
         r.addStepLine(data)
+    } else if r.isScenarioOutline(line) {
+        r.startScenarioOutline()
     } else if r.isScenarioLine(line) {
         r.startScenario()
     } else if r.isFeatureLine(line) {
@@ -285,6 +287,8 @@ func (r *Runner) Execute(file string) {
         r.step(line)
     }
     for _, scenario := range r.scenarios {
+        r.callSetUp()
+        r.runBackground()
         defer r.recover()
         for _, step := range scenario.steps {
             if !r.scenarioIsPending {
@@ -292,8 +296,8 @@ func (r *Runner) Execute(file string) {
             }
         }
         r.scenarioIsPending = false
+        r.callTearDown()
     }
-    r.callTearDown()
 }
 
 // Use this function to let the user know that this
