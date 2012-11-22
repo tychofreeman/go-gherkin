@@ -218,6 +218,7 @@ func createTableMap(keys []string, fields []string) (l map[string]string) {
 }
 
 func (r *Runner) startScenarioOutline() {
+    r.collectBackground = false
 }
 
 func (r *Runner) runBackground() {
@@ -227,8 +228,6 @@ func (r *Runner) runBackground() {
 }
 
 func (r *Runner) startScenario() {
-    r.collectBackground = false
-    r.scenarioIsPending = false
     r.collectBackground = false
     r.scenarios = append(r.scenarios, scenario{})
     r.currScenario = &r.scenarios[len(r.scenarios)-1]
