@@ -167,7 +167,7 @@ func (r *Runner) callTearDown() {
 }
 
 func (r *Runner) parseAsStep(line string) (bool, string) {
-    givenMatch, _ := re.Compile(`^\s*(Given|When|Then|And|But|\*) (.*?)\s*$`)
+    givenMatch, _ := re.Compile(`^\s*(Given|When|Then|And|But|\*)\s+(.*?)\s*$`)
     if s := givenMatch.FindStringSubmatch(line); s != nil && len(s) > 1 {
         return true, s[2]
     }
@@ -183,7 +183,15 @@ func (r *Runner) isScenarioLine(line string) (bool) {
 }
 
 func (r *Runner) isFeatureLine(line string) bool {
-    featureMatch, _ := re.Compile(`Feature:\s*(.*?)\s*$`)
+    spec := `Feature:\s*(.*?)\s*$`
+    return lineMatches(spec, line)
+}
+func (r *Runner) isBackgroundLine(line string) bool {
+    return lineMatches(`^\s*Background:`, line)
+}
+
+func lineMatches(spec, line string) bool {
+    featureMatch, _ := re.Compile(spec)
     if s := featureMatch.FindStringSubmatch(line); s != nil {
         return true
     }
@@ -208,14 +216,6 @@ func createTableMap(keys []string, fields []string) (l map[string]string) {
         l[k] = fields[i]
     }
     return
-}
-
-func (r *Runner) isBackgroundLine(line string) bool {
-    backgroundMatch, _ := re.Compile(`Background:`)
-    if s := backgroundMatch.FindStringSubmatch(line); s != nil {
-        return true
-    }
-    return false
 }
 
 func (r *Runner) executeStep(line string) {
@@ -251,7 +251,6 @@ func (r *Runner) addMlStep(data map[string]string) {
 }
 
 func (r *Runner) step(line string) {
-    fmt.Printf("Stepping on line %v\n", line)
     fields := parseTableLine(line)
     isStep, data := r.parseAsStep(line)
     if r.collectBackground && isStep {
@@ -260,7 +259,6 @@ func (r *Runner) step(line string) {
     } else if r.currScenario != nil && isStep {
         r.addStepLine(data)
     } else if r.isScenarioLine(line) {
-        fmt.Printf("Starting Scenario...\n")
         r.startScenario()
     } else if r.isFeatureLine(line) {
         // Do Nothing!
@@ -282,7 +280,6 @@ func (r *Runner) step(line string) {
 // Once the step definitions are Register()'d, use Execute() to
 // parse and execute Gherkin data.
 func (r *Runner) Execute(file string) {
-    fmt.Printf("Execute: [%v]\n", file)
     lines := strings.Split(file, "\n")
     for _, line := range lines {
         r.step(line)
