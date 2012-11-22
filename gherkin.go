@@ -76,7 +76,7 @@ type Runner struct {
     keys []string
     currScenario scenario
     lastExecutedIndex int
-    scenarios []scenario
+    scenarios []*scenario
 }
 
 func (r *Runner) addStepLine(line string) {
@@ -110,7 +110,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    return &Runner{[]stepdef{}, 0, false, scenario{}, false, nil, nil, nil, nil, -1, []scenario{}}
+    return &Runner{[]stepdef{}, 0, false, scenario{}, false, nil, nil, nil, nil, -1, []*scenario{}}
 }
 
 // Register a step definition. This requires a regular expression
@@ -229,20 +229,13 @@ func (r *Runner) startScenario() {
     r.collectBackground = false
     r.scenarioIsPending = false
     r.currScenario = scenario{}
-    r.scenarios = append(r.scenarios, r.currScenario)
+    r.scenarios = append(r.scenarios, &r.currScenario)
     r.callSetUp()
     for _, bline := range r.background {
         r.executeStepDef(bline)
     }
 }
 
-func (r *Runner) executeLastScenario() {
-    for _, line := range r.currScenario {
-        if !r.scenarioIsPending {
-            r.executeStepDef(line)
-        }
-    }
-}
 
 func (r *Runner) setMlKeys(data []string) {
     r.currScenario[len(r.currScenario)-1].setMlKeys(data)
@@ -286,6 +279,11 @@ func (r *Runner) Execute(file string) {
     lines := strings.Split(file, "\n")
     for _, line := range lines {
         r.step(line)
+    }
+    for _, scenario := range r.scenarios {
+        for _, step := range *scenario {
+            r.executeStepDef(step)
+        }
     }
     r.executeFirstMatchingStep()
     r.callTearDown()
