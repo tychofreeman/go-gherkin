@@ -65,6 +65,13 @@ func (s *step) setMlKeys(keys []string) {
 
 type scenario []step
 
+func (s scenario) last() *step {
+    if len(s) > 0 {
+        return &s[len(s)-1]
+    }
+    return nil
+}
+
 type Runner struct {
     steps []stepdef
     StepCount int
@@ -85,10 +92,11 @@ func (r *Runner) addStepLine(line string) {
 }
 
 func (r *Runner) currStepLine() step {
-    if len(*r.currScenario) > 0 {
-        return (*r.currScenario)[len(*r.currScenario) - 1]
+    l := r.currScenario.last()
+    if l == nil {
+        return StepFromString("")
     }
-    return StepFromString("")
+    return *l
 }
 
 func (r *Runner) resetStepLine() {
@@ -226,11 +234,11 @@ func (r *Runner) startScenario() {
 
 
 func (r *Runner) setMlKeys(data []string) {
-    (*r.currScenario)[len(*r.currScenario)-1].setMlKeys(data)
+    r.currScenario.last().setMlKeys(data)
 }
 
 func (r *Runner) addMlStep(data map[string]string) {
-    (*r.currScenario)[len(*r.currScenario)-1].addMlData(data)
+    r.currScenario.last().addMlData(data)
 }
 
 func (r *Runner) step(line string) {
@@ -250,7 +258,7 @@ func (r *Runner) step(line string) {
     } else if r.isBackgroundLine(line) {
         r.collectBackground = true
     } else if len(fields) > 0 {
-        s := (*r.currScenario)[len(*r.currScenario)-1]
+        s := *r.currScenario.last()
         if len(s.keys) == 0 {
             r.setMlKeys(fields)
         } else if len(fields) != len(s.keys) {
