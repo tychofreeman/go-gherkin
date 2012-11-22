@@ -63,11 +63,13 @@ func (s *step) setMlKeys(keys []string) {
     s.keys = keys
 }
 
-type scenario []step
+type scenario struct {
+    steps []step
+}
 
 func (s scenario) last() *step {
-    if len(s) > 0 {
-        return &s[len(s)-1]
+    if len(s.steps) > 0 {
+        return &s.steps[len(s.steps)-1]
     }
     return nil
 }
@@ -87,8 +89,7 @@ type Runner struct {
 }
 
 func (r *Runner) addStepLine(line string) {
-    r.scenarios[len(r.scenarios)-1] = append(*r.currScenario, StepFromString(line))
-    r.currScenario = &r.scenarios[len(r.scenarios)-1]
+    r.currScenario.steps = append(r.currScenario.steps, StepFromString(line))
 }
 
 func (r *Runner) currStepLine() step {
@@ -100,11 +101,11 @@ func (r *Runner) currStepLine() step {
 }
 
 func (r *Runner) resetStepLine() {
-    r.lastExecutedIndex = len(*r.currScenario)
+    r.lastExecutedIndex = len(r.currScenario.steps)
 }
 
 func (r *Runner) hasOutstandingStep() bool {
-    return r.lastExecutedIndex < len(*r.currScenario)
+    return r.lastExecutedIndex < len(r.currScenario.steps)
 }
 
 // Register a set-up function to be called at the beginning of each scenario
@@ -224,10 +225,11 @@ func (r *Runner) startScenario() {
     r.callTearDown()
     r.collectBackground = false
     r.scenarioIsPending = false
+    r.collectBackground = false
     r.scenarios = append(r.scenarios, scenario{})
     r.currScenario = &r.scenarios[len(r.scenarios)-1]
     r.callSetUp()
-    for _, bline := range r.background {
+    for _, bline := range r.background.steps {
         r.executeStepDef(bline)
     }
 }
@@ -246,9 +248,8 @@ func (r *Runner) step(line string) {
     if isStep, data := r.parseAsStep(line); isStep {
         // If the previous step didn't make us pending, go ahead and execute the new one when appropriate
         if r.collectBackground {
-            r.background = append(r.background, StepFromString(data))
-        }
-        if !r.collectBackground {
+            r.background.steps = append(r.background.steps, StepFromString(data))
+        } else {
             r.addStepLine(data)
         }
     } else if r.isScenarioLine(line) {
@@ -279,7 +280,7 @@ func (r *Runner) Execute(file string) {
     }
     for _, scenario := range r.scenarios {
         defer r.recover()
-        for _, step := range scenario {
+        for _, step := range scenario.steps {
             if !r.scenarioIsPending {
                 r.executeStepDef(step)
             }
