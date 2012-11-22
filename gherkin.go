@@ -65,6 +65,7 @@ func (s *step) setMlKeys(keys []string) {
 
 type scenario struct {
     steps []step
+    isOutline bool
 }
 
 func (s scenario) last() *step {
@@ -218,7 +219,8 @@ func createTableMap(keys []string, fields []string) (l map[string]string) {
 }
 
 func (r *Runner) startScenarioOutline() {
-    r.collectBackground = false
+    r.startScenario()
+    r.currScenario.isOutline = true
 }
 
 func (r *Runner) runBackground() {
@@ -286,16 +288,18 @@ func (r *Runner) Execute(file string) {
         r.step(line)
     }
     for _, scenario := range r.scenarios {
-        r.callSetUp()
-        r.runBackground()
-        defer r.recover()
-        for _, step := range scenario.steps {
-            if !r.scenarioIsPending {
-                r.executeStepDef(step)
+        if !scenario.isOutline {
+            r.callSetUp()
+            r.runBackground()
+            defer r.recover()
+            for _, step := range scenario.steps {
+                if !r.scenarioIsPending {
+                    r.executeStepDef(step)
+                }
             }
+            r.scenarioIsPending = false
+            r.callTearDown()
         }
-        r.scenarioIsPending = false
-        r.callTearDown()
     }
 }
 
