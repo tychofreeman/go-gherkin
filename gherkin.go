@@ -74,28 +74,29 @@ type Runner struct {
     setUp func()
     tearDown func()
     keys []string
-    currScenario scenario
+    currScenario *scenario
     lastExecutedIndex int
-    scenarios []*scenario
+    scenarios []scenario
 }
 
 func (r *Runner) addStepLine(line string) {
-    r.currScenario = append(r.currScenario, StepFromString(line))
+    r.scenarios[len(r.scenarios)-1] = append(*r.currScenario, StepFromString(line))
+    r.currScenario = &r.scenarios[len(r.scenarios)-1]
 }
 
 func (r *Runner) currStepLine() step {
-    if len(r.currScenario) > 0 {
-        return r.currScenario[len(r.currScenario) - 1]
+    if len(*r.currScenario) > 0 {
+        return (*r.currScenario)[len(*r.currScenario) - 1]
     }
     return StepFromString("")
 }
 
 func (r *Runner) resetStepLine() {
-    r.lastExecutedIndex = len(r.currScenario)
+    r.lastExecutedIndex = len(*r.currScenario)
 }
 
 func (r *Runner) hasOutstandingStep() bool {
-    return r.lastExecutedIndex < len(r.currScenario)
+    return r.lastExecutedIndex < len(*r.currScenario)
 }
 
 // Register a set-up function to be called at the beginning of each scenario
@@ -110,7 +111,8 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    return &Runner{[]stepdef{}, 0, false, scenario{}, false, nil, nil, nil, nil, -1, []*scenario{}}
+    s := []scenario{scenario{}}
+    return &Runner{[]stepdef{}, 0, false, scenario{}, false, nil, nil, nil, &s[0], -1, s}
 }
 
 // Register a step definition. This requires a regular expression
@@ -140,15 +142,6 @@ func (r *Runner) executeStepDef(currStep step) {
             r.StepCount++
             return
         }
-    }
-}
-
-func (r *Runner) executeFirstMatchingStep() {
-    currStep := r.currStepLine()
-
-    defer r.reset()
-    if r.hasOutstandingStep() {
-        r.executeStepDef(currStep)
     }
 }
 
@@ -217,19 +210,14 @@ func (r *Runner) isBackgroundLine(line string) bool {
 }
 
 func (r *Runner) executeStep(line string) {
-    if r.collectBackground {
-        r.background = append(r.background, StepFromString(line))
-    } else {
-        r.addStepLine(line)
-    }
 }
 
 func (r *Runner) startScenario() {
     r.callTearDown()
     r.collectBackground = false
     r.scenarioIsPending = false
-    r.currScenario = scenario{}
-    r.scenarios = append(r.scenarios, &r.currScenario)
+    r.scenarios = append(r.scenarios, scenario{})
+    r.currScenario = &r.scenarios[len(r.scenarios)-1]
     r.callSetUp()
     for _, bline := range r.background {
         r.executeStepDef(bline)
@@ -238,30 +226,31 @@ func (r *Runner) startScenario() {
 
 
 func (r *Runner) setMlKeys(data []string) {
-    r.currScenario[len(r.currScenario)-1].setMlKeys(data)
+    (*r.currScenario)[len(*r.currScenario)-1].setMlKeys(data)
 }
 
 func (r *Runner) addMlStep(data map[string]string) {
-    r.currScenario[len(r.currScenario)-1].addMlData(data)
+    (*r.currScenario)[len(*r.currScenario)-1].addMlData(data)
 }
 
 func (r *Runner) step(line string) {
     fields := parseTableLine(line)
     if isStep, data := r.parseAsStep(line); isStep {
-        r.executeFirstMatchingStep()
         // If the previous step didn't make us pending, go ahead and execute the new one when appropriate
-        if !r.scenarioIsPending {
-            r.executeStep(data)
+        if r.collectBackground {
+            r.background = append(r.background, StepFromString(data))
+        }
+        if !r.collectBackground {
+            r.addStepLine(data)
         }
     } else if r.isScenarioLine(line) {
-        r.executeFirstMatchingStep()
         r.startScenario()
     } else if r.isFeatureLine(line) {
         // Do Nothing!
     } else if r.isBackgroundLine(line) {
         r.collectBackground = true
     } else if len(fields) > 0 {
-        s := r.currScenario[len(r.currScenario)-1]
+        s := (*r.currScenario)[len(*r.currScenario)-1]
         if len(s.keys) == 0 {
             r.setMlKeys(fields)
         } else if len(fields) != len(s.keys) {
@@ -281,9 +270,13 @@ func (r *Runner) Execute(file string) {
         r.step(line)
     }
     for _, scenario := range r.scenarios {
-        for _, step := range *scenario {
-            r.executeStepDef(step)
+        defer r.recover()
+        for _, step := range scenario {
+            if !r.scenarioIsPending {
+                r.executeStepDef(step)
+            }
         }
+        r.scenarioIsPending = false
     }
     r.callTearDown()
 }
