@@ -33,7 +33,7 @@ func createstep(p string, f func(World)) stepdef {
     return stepdef{r, f}
 }
 
-func (s stepdef) execute(line step, mlData []map[string]string) bool {
+func (s stepdef) execute(line step) bool {
     if s.r.MatchString(line.String()) {
         if s.f != nil {
             substrs := s.r.FindStringSubmatch(line.String())
@@ -74,7 +74,6 @@ type Runner struct {
     setUp func()
     tearDown func()
     keys []string
-    mlStep []map[string]string
     currScenario scenario
     lastExecutedIndex int
     scenarios []scenario
@@ -111,7 +110,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    return &Runner{[]stepdef{}, 0, false, scenario{}, false, nil, nil, nil, []map[string]string{}, nil, -1, []scenario{}}
+    return &Runner{[]stepdef{}, 0, false, scenario{}, false, nil, nil, nil, nil, -1, []scenario{}}
 }
 
 // Register a step definition. This requires a regular expression
@@ -122,7 +121,6 @@ func (r *Runner) RegisterStepDef(pattern string, f func(World)) {
 
 func (r *Runner) reset() {
     r.resetStepLine()
-    r.mlStep = []map[string]string{}
 }
 
 func (r *Runner) recover() {
@@ -138,7 +136,7 @@ func (r *Runner) recover() {
 func (r *Runner) executeStepDef(currStep step) {
     defer r.recover()
     for _, step := range r.steps {
-        if step.execute(currStep, r.mlStep) {
+        if step.execute(currStep) {
             r.StepCount++
             return
         }
@@ -251,7 +249,6 @@ func (r *Runner) setMlKeys(data []string) {
 }
 
 func (r *Runner) addMlStep(data map[string]string) {
-    r.mlStep = append(r.mlStep, data)
     r.currScenario[len(r.currScenario)-1].addMlData(data)
 }
 
