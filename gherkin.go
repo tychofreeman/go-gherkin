@@ -122,7 +122,6 @@ func (r *Runner) RegisterStepDef(pattern string, f func(World)) {
 
 func (r *Runner) reset() {
     r.resetStepLine()
-    r.keys = nil
     r.mlStep = []map[string]string{}
 }
 
@@ -248,7 +247,6 @@ func (r *Runner) executeLastScenario() {
 }
 
 func (r *Runner) setMlKeys(data []string) {
-    r.keys = data
     r.currScenario[len(r.currScenario)-1].setMlKeys(data)
 }
 
@@ -277,7 +275,7 @@ func (r *Runner) step(line string) {
         if len(s.keys) == 0 {
             r.setMlKeys(fields)
         } else if len(fields) != len(s.keys) {
-            panic(fmt.Sprintf("Wrong number of fields in multi-line step [%v] - expected %d fields but found %d", line, len(r.keys), len(fields)))
+            panic(fmt.Sprintf("Wrong number of fields in multi-line step [%v] - expected %d fields but found %d", line, len(s.keys), len(fields)))
         } else if len(fields) > 0 {
             l := createTableMap(s.keys, fields)
             r.addMlStep(l)
