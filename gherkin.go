@@ -285,7 +285,6 @@ func (r *Runner) Execute(file string) {
             r.executeStepDef(step)
         }
     }
-    r.executeFirstMatchingStep()
     r.callTearDown()
 }
 
