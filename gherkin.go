@@ -65,6 +65,7 @@ func (s *step) setMlKeys(keys []string) {
 
 type scenario_outline struct {
     steps []step
+    keys []string
 }
 
 func ScenarioOutline() scenario_outline {
@@ -77,7 +78,6 @@ func (so *scenario_outline) AddStep(s step) {
 
 func (so scenario_outline) CreateForExample(example map[string]string) scenario {
     s := scenario{}
-    s.steps = []step{}
     for _, currStep := range so.steps {
         l := currStep.line
 
@@ -91,16 +91,45 @@ func (so scenario_outline) CreateForExample(example map[string]string) scenario 
     return s
 }
 
-type scenario struct {
-    steps []step
-    isOutline bool
+func (so *scenario_outline) Last() *step {
+    if so.steps != nil {
+        return &so.steps[len(so.steps)-1]
+    }
+    return nil
 }
 
-func (s scenario) last() *step {
+func (so *scenario_outline) Execute(f func(step)) {
+}
+
+type Scenario interface {
+    AddStep(step)
+    Last() *step
+    Execute(func(step))
+}
+
+type scenario struct {
+    steps []step
+}
+
+func (scen *scenario) AddStep(stp step) {
+    if scen.steps == nil {
+        scen.steps = []step{stp}
+    } else {
+        scen.steps = append(scen.steps, stp)
+    }
+}
+
+func (s *scenario) Last() *step {
     if len(s.steps) > 0 {
         return &s.steps[len(s.steps)-1]
     }
     return nil
+}
+
+func (s *scenario) Execute(f func (s step)) {
+    for _, line := range s.steps {
+        f(line)
+    }
 }
 
 type Runner struct {
@@ -109,16 +138,17 @@ type Runner struct {
     scenarioIsPending bool
     background scenario
     collectBackground bool
+    isExample bool
     setUp func()
     tearDown func()
     keys []string
-    currScenario *scenario
+    currScenario Scenario
     lastExecutedIndex int
-    scenarios []scenario
+    scenarios []Scenario
 }
 
 func (r *Runner) addStepLine(line string) {
-    r.currScenario.steps = append(r.currScenario.steps, StepFromString(line))
+    r.currScenario.AddStep(StepFromString(line))
 }
 
 func (r *Runner) currStepLine() step {
@@ -127,14 +157,6 @@ func (r *Runner) currStepLine() step {
         return StepFromString("")
     }
     return *l
-}
-
-func (r *Runner) resetStepLine() {
-    r.lastExecutedIndex = len(r.currScenario.steps)
-}
-
-func (r *Runner) hasOutstandingStep() bool {
-    return r.lastExecutedIndex < len(r.currScenario.steps)
 }
 
 // Register a set-up function to be called at the beginning of each scenario
@@ -149,18 +171,14 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    s := []scenario{scenario{}}
-    return &Runner{[]stepdef{}, 0, false, scenario{}, false, nil, nil, nil, nil, -1, s}
+    s := []Scenario{&scenario{}}
+    return &Runner{[]stepdef{}, 0, false, scenario{}, false, false, nil, nil, nil, nil, -1, s}
 }
 
 // Register a step definition. This requires a regular expression
 // pattern and a function to execute.
 func (r *Runner) RegisterStepDef(pattern string, f func(World)) {
     r.steps = append(r.steps, createstep(pattern, f))
-}
-
-func (r *Runner) reset() {
-    r.resetStepLine()
 }
 
 func (r *Runner) recover() {
@@ -207,6 +225,10 @@ func (r *Runner) isScenarioOutline(line string) bool {
     return lineMatches(`^\s*Scenario Outline:\s*(.*?)\s*$`, line)
 }
 
+func (r *Runner) isExampleLine(line string) bool {
+    return lineMatches(`^\s*Examples:\s*(.*?)\s*$`, line)
+}
+
 func (r *Runner) isScenarioLine(line string) (bool) {
     return lineMatches(`^\s*Scenario:\s*(.*?)\s*$`, line)
 }
@@ -247,25 +269,26 @@ func createTableMap(keys []string, fields []string) (l map[string]string) {
 }
 
 func (r *Runner) startScenarioOutline() {
-    r.startScenario()
-    r.currScenario.isOutline = true
+    r.isExample = false
+    r.collectBackground = false
+    r.scenarios = append(r.scenarios, &scenario_outline{})
+    r.currScenario = r.scenarios[len(r.scenarios)-1]
 }
 
 func (r *Runner) runBackground() {
-    for _, bline := range r.background.steps {
-        r.executeStepDef(bline)
-    }
+    r.background.Execute(func(s step) {r.executeStepDef(s)})
 }
 
 func (r *Runner) startScenario() {
+    r.isExample = false
     r.collectBackground = false
-    r.scenarios = append(r.scenarios, scenario{})
-    r.currScenario = &r.scenarios[len(r.scenarios)-1]
+    r.scenarios = append(r.scenarios, &scenario{})
+    r.currScenario = r.scenarios[len(r.scenarios)-1]
 }
 
 func (r *Runner) currStep() *step {
     if r.currScenario != nil {
-        return r.currScenario.last()
+        return r.currScenario.Last()
     }
     return nil
 }
@@ -284,7 +307,7 @@ func (r *Runner) step(line string) {
     isStep, data := r.parseAsStep(line)
     if r.collectBackground && isStep {
         // If the previous step didn't make us pending, go ahead and execute the new one when appropriate
-        r.background.steps = append(r.background.steps, StepFromString(data))
+        r.background.AddStep(StepFromString(data))
     } else if r.currScenario != nil && isStep {
         r.addStepLine(data)
     } else if r.isScenarioOutline(line) {
@@ -295,6 +318,19 @@ func (r *Runner) step(line string) {
         // Do Nothing!
     } else if r.isBackgroundLine(line) {
         r.collectBackground = true
+    } else if r.isExampleLine(line) {
+        r.isExample = true
+    } else if r.isExample && len(fields) > 0 {
+        switch scen := r.currScenario.(type) {
+            case *scenario_outline:
+                if scen.keys == nil {
+                    scen.keys = fields
+                } else {
+                    newScenario := scen.CreateForExample(createTableMap(scen.keys, fields))
+                    r.scenarios = append(r.scenarios, &newScenario)
+                }
+            default:
+        }
     } else if r.currStep() != nil && len(fields) > 0 {
         s := *r.currStep()
         if len(s.keys) == 0 {
@@ -316,18 +352,16 @@ func (r *Runner) Execute(file string) {
         r.step(line)
     }
     for _, scenario := range r.scenarios {
-        if !scenario.isOutline {
-            r.callSetUp()
-            r.runBackground()
-            defer r.recover()
-            for _, step := range scenario.steps {
-                if !r.scenarioIsPending {
-                    r.executeStepDef(step)
-                }
+        r.callSetUp()
+        r.runBackground()
+        defer r.recover()
+        scenario.Execute(func (s step) {
+            if !r.scenarioIsPending {
+                r.executeStepDef(s)
             }
-            r.scenarioIsPending = false
-            r.callTearDown()
-        }
+        })
+        r.scenarioIsPending = false
+        r.callTearDown()
     }
 }
 

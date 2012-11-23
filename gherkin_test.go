@@ -337,7 +337,7 @@ func TestScenarioOutlineSupportsMultipleLines(t *testing.T) {
     AssertThat(t, scenario.steps[1].line, Equals(`pops music`))
 }
 
-func DISABLED_TestExecutesScenarioOncePerLineInExample(t *testing.T) {
+func TestExecutesScenarioOncePerLineInExample(t *testing.T) {
     g := CreateRunner()
     timesRun := 0
     g.RegisterStepDef(".", func(w World) { timesRun++ })
