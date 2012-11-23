@@ -311,6 +311,32 @@ func TestScenarioOutlineWithoutExampleDoesNotExecute(t *testing.T) {
     AssertThat(t, wasRun, IsFalse)
 }
 
+func TestScenarioOutlineReplacesFieldWithValueInExample(t *testing.T) {
+    so := ScenarioOutline()
+    so.AddStep(StepFromString(`<count> pops`))
+    scenario := so.CreateForExample(map[string]string{"count":"5"})
+
+    AssertThat(t, scenario.steps[0].line, Equals(`5 pops`))
+}
+
+func TestScenarioOutlineReplacesManyFieldsWithValuesInExample(t *testing.T) {
+    so := ScenarioOutline()
+    so.AddStep(StepFromString(`<count> <name>`))
+    scenario := so.CreateForExample(map[string]string{"count":"5", "name":"pops"})
+
+    AssertThat(t, scenario.steps[0].line, Equals(`5 pops`))
+}
+
+func TestScenarioOutlineSupportsMultipleLines(t *testing.T) {
+    so := ScenarioOutline()
+    so.AddStep(StepFromString(`<count> <name>`))
+    so.AddStep(StepFromString(`<name> <type>`))
+    scenario := so.CreateForExample(map[string]string{"count":"5", "name":"pops", "type":"music"})
+
+    AssertThat(t, scenario.steps[0].line, Equals(`5 pops`))
+    AssertThat(t, scenario.steps[1].line, Equals(`pops music`))
+}
+
 func DISABLED_TestExecutesScenarioOncePerLineInExample(t *testing.T) {
     g := CreateRunner()
     timesRun := 0

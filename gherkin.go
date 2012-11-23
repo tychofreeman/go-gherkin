@@ -63,6 +63,34 @@ func (s *step) setMlKeys(keys []string) {
     s.keys = keys
 }
 
+type scenario_outline struct {
+    steps []step
+}
+
+func ScenarioOutline() scenario_outline {
+    return scenario_outline{}
+}
+
+func (so *scenario_outline) AddStep(s step) {
+    so.steps = append(so.steps, s)
+}
+
+func (so scenario_outline) CreateForExample(example map[string]string) scenario {
+    s := scenario{}
+    s.steps = []step{}
+    for _, currStep := range so.steps {
+        l := currStep.line
+
+        for k, v := range example {
+            r, _ := re.Compile("<" + k + ">")
+            l = r.ReplaceAllString(l, v)
+        }
+        s.steps = append(s.steps, StepFromString(l))
+    }
+
+    return s
+}
+
 type scenario struct {
     steps []step
     isOutline bool
