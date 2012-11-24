@@ -5,6 +5,10 @@ import (
     re "regexp"
     "strings"
     "fmt"
+    "io/ioutil"
+    "path/filepath"
+    "path"
+    "os"
 )
 
 // Passed to each step-definition
@@ -363,6 +367,24 @@ func (r *Runner) Execute(file string) {
         r.scenarioIsPending = false
         r.callTearDown()
     }
+}
+
+func (r *Runner) Run() {
+    featureMatch, _ := re.Compile(`.*\.feature`)
+    filepath.Walk("features", func(walkPath string, info os.FileInfo, err error) error {
+        fmt.Printf("Walked to %v (info: %v, err: %v)\n", walkPath, info, err)
+        if err != nil {
+            return err
+        }
+        if !info.IsDir() && featureMatch.MatchString(info.Name()) {
+            file, _ := os.Open(path.Join(walkPath, info.Name()))
+            data, _ := ioutil.ReadAll(file)
+            r.Execute(string(data))
+        } else if info.IsDir() {
+            return filepath.SkipDir
+        }
+        return nil
+    })
 }
 
 // Use this function to let the user know that this

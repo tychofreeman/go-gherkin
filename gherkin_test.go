@@ -353,7 +353,6 @@ func TestExecutesScenarioOncePerLineInExample(t *testing.T) {
     AssertThat(t, timesRun, Equals(2))
 }
 
-// Need to introduce Scenario Outlines/Examples 
 // Support PyStrings?
 // Support tags?
 // Support reporting.
