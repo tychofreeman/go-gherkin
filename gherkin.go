@@ -38,7 +38,7 @@ func createstep(p string, f func(World)) stepdef {
     return stepdef{r, f}
 }
 
-func (s stepdef) execute(line step) bool {
+func (s stepdef) execute(line *step) bool {
     if s.r.MatchString(line.String()) {
         if s.f != nil {
             substrs := s.r.FindStringSubmatch(line.String())
@@ -51,17 +51,34 @@ func (s stepdef) execute(line step) bool {
 
 type step struct {
     line string
+    orig string
     keys []string
     mldata []map[string]string
 }
+
 func (s step) String() string {
     return s.line
 }
+
 func StepFromString(in string) step{
     return step{ line : in, keys: []string{}, mldata : []map[string]string{} }
 }
+
+func StepFromStringAndOrig(in, orig string) step{
+    return step{ line : in, orig: orig, keys: []string{}, mldata : []map[string]string{} }
+}
+
 func (s *step) addMlData(line map[string]string) {
     s.mldata = append(s.mldata, line)
+}
+
+func (currStep *step) executeStepDef(steps []stepdef) bool {
+    for _, stepd := range steps {
+        if stepd.execute(currStep) {
+            return true
+        }
+    }
+    return false
 }
 
 func (s *step) setMlKeys(keys []string) {
@@ -145,6 +162,11 @@ func (s *scenario) Last() *step {
 func (s *scenario) Execute(stepdefs []stepdef) {
     for _, line := range s.steps {
         line.executeStepDef(stepdefs)
+        if s.isPending {
+            fmt.Printf("PENDING: %v\n", line)
+        } else {
+            fmt.Printf("PASSED: %v\n", line)
+        }
     }
 }
 
@@ -159,8 +181,8 @@ type Runner struct {
     output io.Writer
 }
 
-func (r *Runner) addStepLine(line string) {
-    r.currScenario.AddStep(StepFromString(line))
+func (r *Runner) addStepLine(line, orig string) {
+    r.currScenario.AddStep(StepFromStringAndOrig(line, orig))
 }
 
 func (r *Runner) currStepLine() step {
@@ -199,15 +221,6 @@ func (r *Runner) recover() {
             panic(rec)
         }
     }
-}
-
-func (currStep step) executeStepDef(steps []stepdef) bool {
-    for _, step := range steps {
-        if step.execute(currStep) {
-            return true
-        }
-    }
-    return false
 }
 
 func (r *Runner) callSetUp() {
@@ -317,7 +330,7 @@ func (r *Runner) step(line string) {
     fields := parseTableLine(line)
     isStep, data := parseAsStep(line)
     if r.currScenario != nil && isStep {
-        r.addStepLine(data)
+        r.addStepLine(data, line)
     } else if isScenarioOutline(line) {
         r.startScenarioOutline()
     } else if isScenarioLine(line) {
