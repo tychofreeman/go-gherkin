@@ -5,10 +5,11 @@ import (
     re "regexp"
     "strings"
     "fmt"
+    "io"
     "io/ioutil"
     "path/filepath"
-    "path"
     "os"
+//    "runtime/debug"
 )
 
 // Passed to each step-definition
@@ -70,6 +71,7 @@ func (s *step) setMlKeys(keys []string) {
 type scenario_outline struct {
     steps []step
     keys []string
+    isPending bool
 }
 
 func ScenarioOutline() scenario_outline {
@@ -105,14 +107,24 @@ func (so *scenario_outline) Last() *step {
 func (so *scenario_outline) Execute(f func(step)) {
 }
 
+func (so *scenario_outline) IsPending() bool {
+    return so.isPending
+}
+
 type Scenario interface {
     AddStep(step)
     Last() *step
     Execute(func(step))
+    IsPending() bool
 }
 
 type scenario struct {
     steps []step
+    isPending bool
+}
+
+func (s *scenario) IsPending() bool {
+    return s.isPending
 }
 
 func (scen *scenario) AddStep(stp step) {
@@ -139,7 +151,6 @@ func (s *scenario) Execute(f func (s step)) {
 type Runner struct {
     steps []stepdef
     StepCount int
-    scenarioIsPending bool
     background scenario
     collectBackground bool
     isExample bool
@@ -149,6 +160,7 @@ type Runner struct {
     currScenario Scenario
     lastExecutedIndex int
     scenarios []Scenario
+    output io.Writer
 }
 
 func (r *Runner) addStepLine(line string) {
@@ -176,7 +188,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
     s := []Scenario{&scenario{}}
-    return &Runner{[]stepdef{}, 0, false, scenario{}, false, false, nil, nil, nil, nil, -1, s}
+    return &Runner{[]stepdef{}, 0, scenario{}, false, false, nil, nil, nil, nil, -1, s, nil}
 }
 
 // Register a step definition. This requires a regular expression
@@ -188,21 +200,22 @@ func (r *Runner) RegisterStepDef(pattern string, f func(World)) {
 func (r *Runner) recover() {
     if rec := recover(); rec != nil {
         if rec == "Pending" {
-            r.scenarioIsPending = true
+            fmt.Printf("Recovering from pending scenario...\n")
         } else {
             panic(rec)
         }
     }
+    fmt.Printf("Recovered ...\n")
 }
 
-func (r *Runner) executeStepDef(currStep step) {
-    defer r.recover()
+func (r *Runner) executeStepDef(currStep step) bool {
     for _, step := range r.steps {
         if step.execute(currStep) {
             r.StepCount++
-            return
+            return true
         }
     }
+    return false
 }
 
 func (r *Runner) callSetUp() {
@@ -348,6 +361,22 @@ func (r *Runner) step(line string) {
     }
 }
 
+func (r *Runner) executeScenario(scenario Scenario) {
+    r.callSetUp()
+    r.runBackground()
+    defer r.recover()
+    defer func() {
+        fmt.Printf("ExecuteScenario() deferred...\n")
+        r.callTearDown()
+    }()
+    scenario.Execute(func (s step) {
+        fmt.Printf("Trying to execute step %v (pending: %v)\n", s, scenario.IsPending())
+        if !scenario.IsPending() {
+            r.executeStepDef(s)
+        }
+    })
+}
+
 // Once the step definitions are Register()'d, use Execute() to
 // parse and execute Gherkin data.
 func (r *Runner) Execute(file string) {
@@ -356,39 +385,35 @@ func (r *Runner) Execute(file string) {
         r.step(line)
     }
     for _, scenario := range r.scenarios {
-        r.callSetUp()
-        r.runBackground()
-        defer r.recover()
-        scenario.Execute(func (s step) {
-            if !r.scenarioIsPending {
-                r.executeStepDef(s)
-            }
-        })
-        r.scenarioIsPending = false
-        r.callTearDown()
+        r.executeScenario(scenario)
     }
 }
 
 func (r *Runner) Run() {
     featureMatch, _ := re.Compile(`.*\.feature`)
     filepath.Walk("features", func(walkPath string, info os.FileInfo, err error) error {
-        fmt.Printf("Walked to %v (info: %v, err: %v)\n", walkPath, info, err)
         if err != nil {
+            fmt.Printf("Error: %v\n", err)
             return err
         }
-        if !info.IsDir() && featureMatch.MatchString(info.Name()) {
-            file, _ := os.Open(path.Join(walkPath, info.Name()))
+        if info.Name() != "features" && info.IsDir() {
+            return filepath.SkipDir
+        } else if !info.IsDir() && featureMatch.MatchString(info.Name()) {
+            file, _ := os.Open(walkPath)
             data, _ := ioutil.ReadAll(file)
             r.Execute(string(data))
-        } else if info.IsDir() {
-            return filepath.SkipDir
         }
         return nil
     })
 }
 
+func (r *Runner) SetOutput(w io.Writer) {
+    r.output = w
+}
+
 // Use this function to let the user know that this
 // test is not complete.
 func Pending() {
+    fmt.Printf("Panicking - *PENDING*\n")
     panic("Pending")
 }

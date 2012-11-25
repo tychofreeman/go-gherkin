@@ -3,6 +3,7 @@ package gherkin
 import (
     "testing"
     . "github.com/tychofreeman/go-matchers"
+    "fmt"
 )
 
 var featureText = `Feature: My Feature
@@ -141,9 +142,9 @@ func TestPendingDoesntSkipSecondScenario(t *testing.T) {
     g := CreateRunner()
 
     g.RegisterStepDef("^the first setup$", func(w World) { Pending() })
-    g.RegisterStepDef("^the second setup$", func(w World) { } )
+    g.RegisterStepDef("^the second setup$", func(w World) { fmt.Printf("Running the second setup...\n") } )
     secondActionCalled := false
-    g.RegisterStepDef("^the second action$", func(w World) { secondActionCalled = true })
+    g.RegisterStepDef("^the second action$", func(w World) { fmt.Printf("Running second action...\n"); secondActionCalled = true })
 
     g.Execute(featureText)
     AssertThat(t, secondActionCalled, Equals(true))
