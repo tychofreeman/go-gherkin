@@ -104,7 +104,7 @@ func (so *scenario_outline) Last() *step {
     return nil
 }
 
-func (so *scenario_outline) Execute(f func(step)) {
+func (so *scenario_outline) Execute(s []stepdef) {
 }
 
 func (so *scenario_outline) IsPending() bool {
@@ -114,7 +114,7 @@ func (so *scenario_outline) IsPending() bool {
 type Scenario interface {
     AddStep(step)
     Last() *step
-    Execute(func(step))
+    Execute([]stepdef)
     IsPending() bool
 }
 
@@ -142,9 +142,9 @@ func (s *scenario) Last() *step {
     return nil
 }
 
-func (s *scenario) Execute(f func (s step)) {
+func (s *scenario) Execute(stepdefs []stepdef) {
     for _, line := range s.steps {
-        f(line)
+        line.executeStepDef(stepdefs)
     }
 }
 
@@ -205,10 +205,9 @@ func (r *Runner) recover() {
     }
 }
 
-func (r *Runner) executeStepDef(currStep step) bool {
-    for _, step := range r.steps {
+func (currStep step) executeStepDef(steps []stepdef) bool {
+    for _, step := range steps {
         if step.execute(currStep) {
-            r.StepCount++
             return true
         }
     }
@@ -290,7 +289,7 @@ func (r *Runner) startScenarioOutline() {
 }
 
 func (r *Runner) runBackground() {
-    r.background.Execute(func(s step) {r.executeStepDef(s)})
+    r.background.Execute(r.steps)
 }
 
 func (r *Runner) startScenario() {
@@ -365,11 +364,7 @@ func (r *Runner) executeScenario(scenario Scenario) {
     defer func() {
         r.callTearDown()
     }()
-    scenario.Execute(func (s step) {
-        if !scenario.IsPending() {
-            r.executeStepDef(s)
-        }
-    })
+    scenario.Execute(r.steps)
 }
 
 // Once the step definitions are Register()'d, use Execute() to
