@@ -199,13 +199,10 @@ func (r *Runner) RegisterStepDef(pattern string, f func(World)) {
 
 func (r *Runner) recover() {
     if rec := recover(); rec != nil {
-        if rec == "Pending" {
-            fmt.Printf("Recovering from pending scenario...\n")
-        } else {
+        if rec != "Pending" {
             panic(rec)
         }
     }
-    fmt.Printf("Recovered ...\n")
 }
 
 func (r *Runner) executeStepDef(currStep step) bool {
@@ -366,11 +363,9 @@ func (r *Runner) executeScenario(scenario Scenario) {
     r.runBackground()
     defer r.recover()
     defer func() {
-        fmt.Printf("ExecuteScenario() deferred...\n")
         r.callTearDown()
     }()
     scenario.Execute(func (s step) {
-        fmt.Printf("Trying to execute step %v (pending: %v)\n", s, scenario.IsPending())
         if !scenario.IsPending() {
             r.executeStepDef(s)
         }
@@ -393,7 +388,6 @@ func (r *Runner) Run() {
     featureMatch, _ := re.Compile(`.*\.feature`)
     filepath.Walk("features", func(walkPath string, info os.FileInfo, err error) error {
         if err != nil {
-            fmt.Printf("Error: %v\n", err)
             return err
         }
         if info.Name() != "features" && info.IsDir() {
@@ -414,6 +408,5 @@ func (r *Runner) SetOutput(w io.Writer) {
 // Use this function to let the user know that this
 // test is not complete.
 func Pending() {
-    fmt.Printf("Panicking - *PENDING*\n")
     panic("Pending")
 }
