@@ -224,6 +224,9 @@ func (r *Runner) Execute(file string) {
     }
 }
 
+// Once the step definitions are Register()'d, use Run() to
+// locate all *.feature files within the feature/ subdirectory
+// of the current directory.
 func (r *Runner) Run() {
     featureMatch, _ := re.Compile(`.*\.feature`)
     filepath.Walk("features", func(walkPath string, info os.FileInfo, err error) error {
@@ -241,6 +244,8 @@ func (r *Runner) Run() {
     })
 }
 
+// By default, Runner uses os.Stdout to write to. However, it may be useful
+// to redirect. To do so, provide an io.Writer here.
 func (r *Runner) SetOutput(w io.Writer) {
     r.output = w
 }
