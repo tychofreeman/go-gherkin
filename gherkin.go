@@ -17,7 +17,7 @@ type stepdef struct {
     f func(*World)
 }
 
-func createstep(p string, f func(*World)) stepdef {
+func createstepdef(p string, f func(*World)) stepdef {
     r, _ := re.Compile(p)
     return stepdef{r, f}
 }
@@ -230,7 +230,7 @@ func createWriterlessRunner() *Runner {
 // Register a step definition. This requires a regular expression
 // pattern and a function to execute.
 func (r *Runner) RegisterStepDef(pattern string, f func(*World)) {
-    r.steps = append(r.steps, createstep(pattern, f))
+    r.steps = append(r.steps, createstepdef(pattern, f))
 }
 
 func (r *Runner) callSetUp() {
