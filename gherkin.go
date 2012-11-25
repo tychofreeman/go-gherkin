@@ -259,14 +259,6 @@ func (r *Runner) RegisterStepDef(pattern string, f func(*World)) {
     r.steps = append(r.steps, createstep(pattern, f))
 }
 
-func (r *Runner) recover() {
-    if rec := recover(); rec != nil {
-        if rec != "Pending" {
-            panic(rec)
-        }
-    }
-}
-
 func (r *Runner) callSetUp() {
     if r.setUp != nil {
         r.setUp()
@@ -413,11 +405,8 @@ func (r *Runner) step(line string) {
 func (r *Runner) executeScenario(scenario Scenario) {
     r.callSetUp()
     r.runBackground()
-    defer r.recover()
-    defer func() {
-        r.callTearDown()
-    }()
     scenario.Execute(r.steps, r.output)
+    r.callTearDown()
 }
 
 // Once the step definitions are Register()'d, use Execute() to
