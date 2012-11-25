@@ -223,7 +223,7 @@ func (r *Runner) callTearDown() {
     }
 }
 
-func (r *Runner) parseAsStep(line string) (bool, string) {
+func parseAsStep(line string) (bool, string) {
     givenMatch, _ := re.Compile(`^\s*(Given|When|Then|And|But|\*)\s+(.*?)\s*$`)
     if s := givenMatch.FindStringSubmatch(line); s != nil && len(s) > 1 {
         return true, s[2]
@@ -316,7 +316,7 @@ func (r *Runner) addMlStep(data map[string]string) {
 
 func (r *Runner) step(line string) {
     fields := parseTableLine(line)
-    isStep, data := r.parseAsStep(line)
+    isStep, data := parseAsStep(line)
     if r.currScenario != nil && isStep {
         r.addStepLine(data)
     } else if isScenarioOutline(line) {
