@@ -87,7 +87,7 @@ func (s *step) addMlData(line map[string]string) {
     s.mldata = append(s.mldata, line)
 }
 
-func (s *step) recover() {
+func (s *step) recoverPending() {
     if rec := recover(); rec != nil {
         if rec == "Pending" {
             s.isPending = true
@@ -99,7 +99,7 @@ func (s *step) recover() {
 
 func (currStep *step) executeStepDef(steps []stepdef) bool {
     for _, stepd := range steps {
-        defer currStep.recover()
+        defer currStep.recoverPending()
         if stepd.execute(currStep, &currStep.errors) {
             return true
         }
