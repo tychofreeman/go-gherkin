@@ -17,6 +17,7 @@ type World struct {
     regexParams []string
     regexParamIndex int
     multiStep []map[string]string
+    output io.Writer
 }
 
 // Allows access to step definition regular expression captures.
@@ -26,6 +27,12 @@ func (w World) GetRegexParam() string {
         panic("GetRegexParam() called too many times.")
     }
     return w.regexParams[w.regexParamIndex]
+}
+
+func (w World) Errorf(format string, args ...interface{}) {
+    if w.output != nil {
+        fmt.Fprintf(w.output, format, args)
+    }
 }
 
 type stepdef struct {
@@ -38,11 +45,11 @@ func createstep(p string, f func(World)) stepdef {
     return stepdef{r, f}
 }
 
-func (s stepdef) execute(line *step) bool {
+func (s stepdef) execute(line *step, output io.Writer) bool {
     if s.r.MatchString(line.String()) {
         if s.f != nil {
             substrs := s.r.FindStringSubmatch(line.String())
-            s.f(World{regexParams:substrs, multiStep:line.mldata})
+            s.f(World{regexParams:substrs, multiStep:line.mldata, output: output})
         }
         return true
     }
@@ -54,6 +61,7 @@ type step struct {
     orig string
     keys []string
     mldata []map[string]string
+    isPending bool
 }
 
 func (s step) String() string {
@@ -72,9 +80,20 @@ func (s *step) addMlData(line map[string]string) {
     s.mldata = append(s.mldata, line)
 }
 
-func (currStep *step) executeStepDef(steps []stepdef) bool {
+func (s *step) recover() {
+    if rec := recover(); rec != nil {
+        if rec == "Pending" {
+            s.isPending = true
+        } else {
+            panic(rec)
+        }
+    }
+}
+
+func (currStep *step) executeStepDef(steps []stepdef, output io.Writer) bool {
     for _, stepd := range steps {
-        if stepd.execute(currStep) {
+        defer currStep.recover()
+        if stepd.execute(currStep, output) {
             return true
         }
     }
@@ -121,27 +140,19 @@ func (so *scenario_outline) Last() *step {
     return nil
 }
 
-func (so *scenario_outline) Execute(s []stepdef) {
-}
-
-func (so *scenario_outline) IsPending() bool {
-    return so.isPending
+func (so *scenario_outline) Execute(s []stepdef, output io.Writer) {
 }
 
 type Scenario interface {
     AddStep(step)
     Last() *step
-    Execute([]stepdef)
-    IsPending() bool
+    Execute([]stepdef, io.Writer)
 }
 
 type scenario struct {
     steps []step
     isPending bool
-}
-
-func (s *scenario) IsPending() bool {
-    return s.isPending
+    orig string
 }
 
 func (scen *scenario) AddStep(stp step) {
@@ -159,9 +170,25 @@ func (s *scenario) Last() *step {
     return nil
 }
 
-func (s *scenario) Execute(stepdefs []stepdef) {
+func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) {
+    if output != nil {
+        fmt.Fprintf(output, s.orig + "\n")
+    }
+    isPending := false
     for _, line := range s.steps {
-        line.executeStepDef(stepdefs)
+        if !isPending {
+            line.executeStepDef(stepdefs, output)
+        }
+        if line.isPending {
+            if output != nil {
+                fmt.Fprintf(output, "PENDING - %s\n", line.orig)
+            }
+            isPending = true
+        } else if isPending {
+            if output != nil {
+                fmt.Fprintf(output, "Skipped - %s\n", line.orig)
+            }
+        }
     }
 }
 
@@ -201,7 +228,13 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
     s := []Scenario{&scenario{}}
-    return &Runner{[]stepdef{}, nil, false, nil, nil, nil, s, nil}
+    return &Runner{[]stepdef{}, nil, false, nil, nil, nil, s, os.Stdout}
+}
+
+func createWriterlessRunner() *Runner {
+    r := CreateRunner()
+    r.output = nil
+    return r
 }
 
 // Register a step definition. This requires a regular expression
@@ -232,7 +265,7 @@ func (r *Runner) callTearDown() {
 
 func (r *Runner) runBackground() {
     if r.background != nil {
-        r.background.Execute(r.steps)
+        r.background.Execute(r.steps, r.output)
     }
 }
 
@@ -301,8 +334,8 @@ func (r *Runner) startScenarioOutline() {
     r.resetWithScenario(&scenario_outline{})
 }
 
-func (r *Runner) startScenario() {
-    r.resetWithScenario(&scenario{})
+func (r *Runner) startScenario(orig string) {
+    r.resetWithScenario(&scenario{orig: orig})
 }
 
 func (r *Runner) currStep() *step {
@@ -329,11 +362,11 @@ func (r *Runner) step(line string) {
     } else if isScenarioOutline(line) {
         r.startScenarioOutline()
     } else if isScenarioLine(line) {
-        r.startScenario()
+        r.startScenario(line)
     } else if isFeatureLine(line) {
         // Do Nothing!
     } else if isBackgroundLine(line) {
-        r.startScenario()
+        r.startScenario(line)
         r.background = r.currScenario
     } else if isExampleLine(line) {
         r.isExample = true
@@ -368,7 +401,7 @@ func (r *Runner) executeScenario(scenario Scenario) {
     defer func() {
         r.callTearDown()
     }()
-    scenario.Execute(r.steps)
+    scenario.Execute(r.steps, r.output)
 }
 
 // Once the step definitions are Register()'d, use Execute() to
