@@ -195,6 +195,10 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) {
             if output != nil {
                 fmt.Fprintf(output, "Skipped - %s\n", line.orig)
             }
+        } else {
+            if output != nil {
+                fmt.Fprintf(output, "        - %s\n", line.orig)
+            }
         }
         if line.hasErrors {
             // The '&' is necessary to make .errors conform to the io.Writer interface
