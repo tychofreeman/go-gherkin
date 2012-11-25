@@ -150,8 +150,7 @@ func (s *scenario) Execute(stepdefs []stepdef) {
 
 type Runner struct {
     steps []stepdef
-    background scenario
-    collectBackground bool
+    background Scenario
     isExample bool
     setUp func()
     tearDown func()
@@ -186,7 +185,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
     s := []Scenario{&scenario{}}
-    return &Runner{[]stepdef{}, scenario{}, false, false, nil, nil, nil, nil, s, nil}
+    return &Runner{[]stepdef{}, nil, false, nil, nil, nil, nil, s, nil}
 }
 
 // Register a step definition. This requires a regular expression
@@ -281,18 +280,18 @@ func createTableMap(keys []string, fields []string) (l map[string]string) {
 
 func (r *Runner) startScenarioOutline() {
     r.isExample = false
-    r.collectBackground = false
     r.scenarios = append(r.scenarios, &scenario_outline{})
     r.currScenario = r.scenarios[len(r.scenarios)-1]
 }
 
 func (r *Runner) runBackground() {
-    r.background.Execute(r.steps)
+    if r.background != nil {
+        r.background.Execute(r.steps)
+    }
 }
 
 func (r *Runner) startScenario() {
     r.isExample = false
-    r.collectBackground = false
     r.scenarios = append(r.scenarios, &scenario{})
     r.currScenario = r.scenarios[len(r.scenarios)-1]
 }
@@ -316,10 +315,7 @@ func (r *Runner) addMlStep(data map[string]string) {
 func (r *Runner) step(line string) {
     fields := parseTableLine(line)
     isStep, data := r.parseAsStep(line)
-    if r.collectBackground && isStep {
-        // If the previous step didn't make us pending, go ahead and execute the new one when appropriate
-        r.background.AddStep(StepFromString(data))
-    } else if r.currScenario != nil && isStep {
+    if r.currScenario != nil && isStep {
         r.addStepLine(data)
     } else if r.isScenarioOutline(line) {
         r.startScenarioOutline()
@@ -328,7 +324,8 @@ func (r *Runner) step(line string) {
     } else if r.isFeatureLine(line) {
         // Do Nothing!
     } else if r.isBackgroundLine(line) {
-        r.collectBackground = true
+        r.startScenario()
+        r.background = r.currScenario
     } else if r.isExampleLine(line) {
         r.isExample = true
     } else if r.isExample && len(fields) > 0 {
