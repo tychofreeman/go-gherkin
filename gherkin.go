@@ -104,6 +104,7 @@ func (currStep *step) executeStepDef(steps []stepdef) bool {
             return true
         }
     }
+    fmt.Fprintf(&currStep.errors, `Could not find step definition for "%s"` + "\n", currStep.orig)
     return false
 }
 
