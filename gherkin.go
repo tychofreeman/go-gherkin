@@ -150,7 +150,6 @@ func (s *scenario) Execute(stepdefs []stepdef) {
 
 type Runner struct {
     steps []stepdef
-    StepCount int
     background scenario
     collectBackground bool
     isExample bool
@@ -158,7 +157,6 @@ type Runner struct {
     tearDown func()
     keys []string
     currScenario Scenario
-    lastExecutedIndex int
     scenarios []Scenario
     output io.Writer
 }
@@ -188,7 +186,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
     s := []Scenario{&scenario{}}
-    return &Runner{[]stepdef{}, 0, scenario{}, false, false, nil, nil, nil, nil, -1, s, nil}
+    return &Runner{[]stepdef{}, scenario{}, false, false, nil, nil, nil, nil, s, nil}
 }
 
 // Register a step definition. This requires a regular expression

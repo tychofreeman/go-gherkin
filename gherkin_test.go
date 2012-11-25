@@ -115,17 +115,6 @@ func TestMultipleStepsAreCalled(t *testing.T) {
     AssertThat(t, secondWasCalled, Equals(true))
 }
 
-func DISABLED_TestTellsNumberOfStepsExecuted(t *testing.T) {
-    g := CreateRunner()
-
-    g.RegisterStepDef("^the first setup$", func(w World) {})
-    g.RegisterStepDef("^the first action$", func(w World) {})
-    g.RegisterStepDef("^the first result$", func(w World) {})
-
-    g.Execute(featureText)
-    AssertThat(t, g.StepCount, Equals(3))
-}
-
 func TestPendingSkipsTests(t *testing.T) {
     g := CreateRunner()
 
