@@ -231,22 +231,22 @@ func (r *Runner) parseAsStep(line string) (bool, string) {
     return false, ""
 }
 
-func (r *Runner) isScenarioOutline(line string) bool {
+func isScenarioOutline(line string) bool {
     return lineMatches(`^\s*Scenario Outline:\s*(.*?)\s*$`, line)
 }
 
-func (r *Runner) isExampleLine(line string) bool {
+func isExampleLine(line string) bool {
     return lineMatches(`^\s*Examples:\s*(.*?)\s*$`, line)
 }
 
-func (r *Runner) isScenarioLine(line string) (bool) {
+func isScenarioLine(line string) (bool) {
     return lineMatches(`^\s*Scenario:\s*(.*?)\s*$`, line)
 }
 
-func (r *Runner) isFeatureLine(line string) bool {
+func isFeatureLine(line string) bool {
     return lineMatches(`Feature:\s*(.*?)\s*$`, line)
 }
-func (r *Runner) isBackgroundLine(line string) bool {
+func isBackgroundLine(line string) bool {
     return lineMatches(`^\s*Background:`, line)
 }
 
@@ -288,14 +288,14 @@ func (r *Runner) startScenarioOutline() {
     r.resetWithScenario(&scenario_outline{})
 }
 
+func (r *Runner) startScenario() {
+    r.resetWithScenario(&scenario{})
+}
+
 func (r *Runner) runBackground() {
     if r.background != nil {
         r.background.Execute(r.steps)
     }
-}
-
-func (r *Runner) startScenario() {
-    r.resetWithScenario(&scenario{})
 }
 
 func (r *Runner) currStep() *step {
@@ -319,16 +319,16 @@ func (r *Runner) step(line string) {
     isStep, data := r.parseAsStep(line)
     if r.currScenario != nil && isStep {
         r.addStepLine(data)
-    } else if r.isScenarioOutline(line) {
+    } else if isScenarioOutline(line) {
         r.startScenarioOutline()
-    } else if r.isScenarioLine(line) {
+    } else if isScenarioLine(line) {
         r.startScenario()
-    } else if r.isFeatureLine(line) {
+    } else if isFeatureLine(line) {
         // Do Nothing!
-    } else if r.isBackgroundLine(line) {
+    } else if isBackgroundLine(line) {
         r.startScenario()
         r.background = r.currScenario
-    } else if r.isExampleLine(line) {
+    } else if isExampleLine(line) {
         r.isExample = true
     } else if r.isExample && len(fields) > 0 {
         switch scen := r.currScenario.(type) {
