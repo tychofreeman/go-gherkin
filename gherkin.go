@@ -9,7 +9,6 @@ import (
     "io/ioutil"
     "path/filepath"
     "os"
-//    "runtime/debug"
     "bytes"
 )
 
@@ -31,6 +30,7 @@ func (w World) GetRegexParam() string {
     return w.regexParams[w.regexParamIndex]
 }
 
+// Allows World to be used with the go-matchers AssertThat() function.
 func (w *World) Errorf(format string, args ...interface{}) {
     w.gotAnError = true
     if w.output != nil {
@@ -99,9 +99,9 @@ func (s *step) recoverPending() {
 
 func (currStep *step) executeStepDef(steps []stepdef) bool {
     defer currStep.recoverPending()
-    for i, stepd := range steps {
+    for _, stepd := range steps {
+            //fmt.Printf("Executing step %s with stepdef %d (%v)\n", currStep, i, stepd)
         if stepd.execute(currStep, &currStep.errors) {
-            fmt.Printf("Executing step %s with stepdef %d (%v)\n", currStep, i, stepd)
             return true
         }
     }
@@ -202,8 +202,7 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) {
                 fmt.Fprintf(output, "        - %s\n", line.orig)
             }
         }
-        if line.hasErrors {
-            // The '&' is necessary to make .errors conform to the io.Writer interface
+        if output != nil {
             fmt.Fprintf(output, "%v", &line.errors)
         }
     }
