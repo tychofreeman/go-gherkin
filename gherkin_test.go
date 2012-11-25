@@ -24,7 +24,7 @@ var featureText = `Feature: My Feature
 
 func assertMatchCalledOrNot(t *testing.T, step string, pattern string, isCalled bool) {
     wasCalled := false
-    f := func(w World) {
+    f := func(w *World) {
         wasCalled = true
     }
 
@@ -53,8 +53,8 @@ func TestAvoidsNonMatchingMethod(t *testing.T) {
 
 func TestCallsOnlyFirstMatchingMethod(t *testing.T) {
     wasCalled := false
-    first := func(w World) { }
-    second := func(w World) {
+    first := func(w *World) { }
+    second := func(w *World) {
         wasCalled = true
     }
 
@@ -101,12 +101,12 @@ func TestMultipleStepsAreCalled(t *testing.T) {
     g := createWriterlessRunner()
 
     firstWasCalled := false
-    g.RegisterStepDef("^the first setup$", func(w World) {
+    g.RegisterStepDef("^the first setup$", func(w *World) {
         firstWasCalled = true
     })
 
     secondWasCalled := false
-    g.RegisterStepDef("^the first action$", func(w World) {
+    g.RegisterStepDef("^the first action$", func(w *World) {
         secondWasCalled = true
     })
 
@@ -118,9 +118,9 @@ func TestMultipleStepsAreCalled(t *testing.T) {
 func TestPendingSkipsTests(t *testing.T) {
     g := createWriterlessRunner()
 
-    g.RegisterStepDef("^the first setup$", func(w World) { Pending() })
+    g.RegisterStepDef("^the first setup$", func(w *World) { Pending() })
     actionWasCalled := false
-    g.RegisterStepDef("^the first action$", func(w World) { actionWasCalled = true })
+    g.RegisterStepDef("^the first action$", func(w *World) { actionWasCalled = true })
 
     g.Execute(featureText)
     AssertThat(t, actionWasCalled, Equals(false))
@@ -129,10 +129,10 @@ func TestPendingSkipsTests(t *testing.T) {
 func TestPendingDoesntSkipSecondScenario(t *testing.T) {
     g := createWriterlessRunner()
 
-    g.RegisterStepDef("^the first setup$", func(w World) { Pending() })
-    g.RegisterStepDef("^the second setup$", func(w World) { } )
+    g.RegisterStepDef("^the first setup$", func(w *World) { Pending() })
+    g.RegisterStepDef("^the second setup$", func(w *World) { } )
     secondActionCalled := false
-    g.RegisterStepDef("^the second action$", func(w World) { secondActionCalled = true })
+    g.RegisterStepDef("^the second action$", func(w *World) { secondActionCalled = true })
 
     g.Execute(featureText)
     AssertThat(t, secondActionCalled, Equals(true))
@@ -141,7 +141,7 @@ func TestPendingDoesntSkipSecondScenario(t *testing.T) {
 func TestBackgroundIsRunBeforeEachScenario(t *testing.T) {
     g := createWriterlessRunner()
     wasCalled := false
-    g.RegisterStepDef("^background$", func(w World) { wasCalled = true })
+    g.RegisterStepDef("^background$", func(w *World) { wasCalled = true })
     g.Execute(`Feature: 
         Background:
             Given background
@@ -158,7 +158,7 @@ func TestCallsSeUptBeforeScenario(t *testing.T) {
     g.SetSetUpFn(func() { setUpWasCalled = true })
 
     setUpCalledBeforeStep := false
-    g.RegisterStepDef(".", func(w World) { setUpCalledBeforeStep = setUpWasCalled })
+    g.RegisterStepDef(".", func(w *World) { setUpCalledBeforeStep = setUpWasCalled })
     g.Execute(`Feature:
         Scenario:
             Then this`)
@@ -181,7 +181,7 @@ func TestCallsTearDownBeforeScenario(t *testing.T) {
 func TestPassesTableListToMultiLineStep(t *testing.T) {
     g := createWriterlessRunner()
     var data []map[string]string
-    g.RegisterStepDef(".", func(w World) { data = w.multiStep })
+    g.RegisterStepDef(".", func(w *World) { data = w.multiStep })
     g.Execute(`Feature:
         Scenario:
             Then you should see these people
@@ -206,8 +206,8 @@ func TestErrorsIfTooFewFieldsInMultiLineStep(t *testing.T) {
         AssertThat(t, wasThenRun, IsFalse)
     }()
 
-    g.RegisterStepDef("given", func(w World) { wasGivenRun = true })
-    g.RegisterStepDef("then", func(w World) { wasThenRun = true })
+    g.RegisterStepDef("given", func(w *World) { wasGivenRun = true })
+    g.RegisterStepDef("then", func(w *World) { wasThenRun = true })
 
     g.Execute(`Feature:
         Scenario:
@@ -221,8 +221,8 @@ func TestSupportsMultipleMultiLineStepsPerScenario(t *testing.T) {
     g := createWriterlessRunner()
     var givenData []map[string]string
     var whenData []map[string]string
-    g.RegisterStepDef("given", func(w World) { givenData = w.multiStep })
-    g.RegisterStepDef("when", func(w World) { whenData = w.multiStep })
+    g.RegisterStepDef("given", func(w *World) { givenData = w.multiStep })
+    g.RegisterStepDef("when", func(w *World) { whenData = w.multiStep })
 
     g.Execute(`Feature:
         Scenario:
@@ -253,7 +253,7 @@ func TestSupportsMultipleMultiLineStepsPerScenario(t *testing.T) {
 func TestAllowsAccessToFirstRegexCapture(t *testing.T) {
     g := createWriterlessRunner()
     captured := ""
-    g.RegisterStepDef("(thing)", func(w World) { captured = w.GetRegexParam() })
+    g.RegisterStepDef("(thing)", func(w *World) { captured = w.GetRegexParam() })
     g.Execute(`Feature:
         Scenario:
             Given thing
@@ -264,7 +264,7 @@ func TestAllowsAccessToFirstRegexCapture(t *testing.T) {
 
 func TestFailsGracefullyWithOutOfBoundsRegexCaptures(t *testing.T) {
     g := createWriterlessRunner()
-    g.RegisterStepDef(".", func(w World) { w.GetRegexParam() })
+    g.RegisterStepDef(".", func(w *World) { w.GetRegexParam() })
 
     defer func() {
         r := recover()
@@ -281,7 +281,7 @@ func TestFailsGracefullyWithOutOfBoundsRegexCaptures(t *testing.T) {
 func DISABLED_TestOnlyExecutesStepsBelowScenarioLine(t *testing.T) {
     g := createWriterlessRunner()
     wasRun := false
-    g.RegisterStepDef(".", func(w World) { wasRun = true })
+    g.RegisterStepDef(".", func(w *World) { wasRun = true })
     g.Execute(`Feature:
         Given .`)
 
@@ -291,7 +291,7 @@ func DISABLED_TestOnlyExecutesStepsBelowScenarioLine(t *testing.T) {
 func TestScenarioOutlineWithoutExampleDoesNotExecute(t *testing.T) {
     g := createWriterlessRunner()
     wasRun := false
-    g.RegisterStepDef(".", func(w World) { wasRun = true})
+    g.RegisterStepDef(".", func(w *World) { wasRun = true})
     g.Execute(`Feature:
         Scenario Outline:
             Given .
@@ -329,7 +329,7 @@ func TestScenarioOutlineSupportsMultipleLines(t *testing.T) {
 func TestExecutesScenarioOncePerLineInExample(t *testing.T) {
     g := createWriterlessRunner()
     timesRun := 0
-    g.RegisterStepDef(".", func(w World) { timesRun++ })
+    g.RegisterStepDef(".", func(w *World) { timesRun++ })
     g.Execute(`Feature:
         Scenario Outline:
             Given .

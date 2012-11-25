@@ -19,6 +19,7 @@ type World struct {
     regexParamIndex int
     multiStep []map[string]string
     output io.Writer
+    gotAnError bool
 }
 
 // Allows access to step definition regular expression captures.
@@ -30,7 +31,8 @@ func (w World) GetRegexParam() string {
     return w.regexParams[w.regexParamIndex]
 }
 
-func (w World) Errorf(format string, args ...interface{}) {
+func (w *World) Errorf(format string, args ...interface{}) {
+    w.gotAnError = true
     if w.output != nil {
         fmt.Fprintf(w.output, format, args)
     }
@@ -38,10 +40,10 @@ func (w World) Errorf(format string, args ...interface{}) {
 
 type stepdef struct {
     r *re.Regexp
-    f func(World)
+    f func(*World)
 }
 
-func createstep(p string, f func(World)) stepdef {
+func createstep(p string, f func(*World)) stepdef {
     r, _ := re.Compile(p)
     return stepdef{r, f}
 }
@@ -50,7 +52,9 @@ func (s stepdef) execute(line *step, output io.Writer) bool {
     if s.r.MatchString(line.String()) {
         if s.f != nil {
             substrs := s.r.FindStringSubmatch(line.String())
-            s.f(World{regexParams:substrs, multiStep:line.mldata, output: output})
+            w := &World{regexParams:substrs, multiStep:line.mldata, output: output} 
+            defer func() { line.hasErrors = w.gotAnError }()
+            s.f(w)
         }
         return true
     }
@@ -84,7 +88,6 @@ func (s *step) addMlData(line map[string]string) {
 }
 
 func (s *step) recover() {
-    s.hasErrors = (s.errors.Len() > 0)
     if rec := recover(); rec != nil {
         if rec == "Pending" {
             s.isPending = true
@@ -247,7 +250,7 @@ func createWriterlessRunner() *Runner {
 
 // Register a step definition. This requires a regular expression
 // pattern and a function to execute.
-func (r *Runner) RegisterStepDef(pattern string, f func(World)) {
+func (r *Runner) RegisterStepDef(pattern string, f func(*World)) {
     r.steps = append(r.steps, createstep(pattern, f))
 }
 
