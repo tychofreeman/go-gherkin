@@ -194,7 +194,8 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) {
             }
         }
         if line.hasErrors {
-            fmt.Fprintf(output, "%v", line.errors)
+            // The '&' is necessary to make .errors conform to the io.Writer interface
+            fmt.Fprintf(output, "%v", &line.errors)
         }
     }
 }
