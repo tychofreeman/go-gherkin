@@ -162,11 +162,6 @@ func (s *scenario) Last() *step {
 func (s *scenario) Execute(stepdefs []stepdef) {
     for _, line := range s.steps {
         line.executeStepDef(stepdefs)
-        if s.isPending {
-            fmt.Printf("PENDING: %v\n", line)
-        } else {
-            fmt.Printf("PASSED: %v\n", line)
-        }
     }
 }
 
