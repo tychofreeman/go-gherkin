@@ -154,7 +154,6 @@ type Runner struct {
     isExample bool
     setUp func()
     tearDown func()
-    keys []string
     currScenario Scenario
     scenarios []Scenario
     output io.Writer
@@ -185,7 +184,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
     s := []Scenario{&scenario{}}
-    return &Runner{[]stepdef{}, nil, false, nil, nil, nil, nil, s, nil}
+    return &Runner{[]stepdef{}, nil, false, nil, nil, nil, s, nil}
 }
 
 // Register a step definition. This requires a regular expression
@@ -220,6 +219,12 @@ func (r *Runner) callSetUp() {
 func (r *Runner) callTearDown() {
     if r.tearDown != nil {
         r.tearDown()
+    }
+}
+
+func (r *Runner) runBackground() {
+    if r.background != nil {
+        r.background.Execute(r.steps)
     }
 }
 
@@ -290,12 +295,6 @@ func (r *Runner) startScenarioOutline() {
 
 func (r *Runner) startScenario() {
     r.resetWithScenario(&scenario{})
-}
-
-func (r *Runner) runBackground() {
-    if r.background != nil {
-        r.background.Execute(r.steps)
-    }
 }
 
 func (r *Runner) currStep() *step {
