@@ -98,9 +98,10 @@ func (s *step) recoverPending() {
 }
 
 func (currStep *step) executeStepDef(steps []stepdef) bool {
-    for _, stepd := range steps {
-        defer currStep.recoverPending()
+    defer currStep.recoverPending()
+    for i, stepd := range steps {
         if stepd.execute(currStep, &currStep.errors) {
+            fmt.Printf("Executing step %s with stepdef %d (%v)\n", currStep, i, stepd)
             return true
         }
     }
