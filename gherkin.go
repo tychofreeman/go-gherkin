@@ -10,6 +10,7 @@ import (
     "path/filepath"
     "os"
 //    "runtime/debug"
+    "bytes"
 )
 
 // Passed to each step-definition
@@ -62,6 +63,8 @@ type step struct {
     keys []string
     mldata []map[string]string
     isPending bool
+    errors bytes.Buffer
+    hasErrors bool
 }
 
 func (s step) String() string {
@@ -81,6 +84,7 @@ func (s *step) addMlData(line map[string]string) {
 }
 
 func (s *step) recover() {
+    s.hasErrors = (s.errors.Len() > 0)
     if rec := recover(); rec != nil {
         if rec == "Pending" {
             s.isPending = true
@@ -90,10 +94,10 @@ func (s *step) recover() {
     }
 }
 
-func (currStep *step) executeStepDef(steps []stepdef, output io.Writer) bool {
+func (currStep *step) executeStepDef(steps []stepdef) bool {
     for _, stepd := range steps {
         defer currStep.recover()
-        if stepd.execute(currStep, output) {
+        if stepd.execute(currStep, &currStep.errors) {
             return true
         }
     }
@@ -177,7 +181,7 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) {
     isPending := false
     for _, line := range s.steps {
         if !isPending {
-            line.executeStepDef(stepdefs, output)
+            line.executeStepDef(stepdefs)
         }
         if line.isPending {
             if output != nil {
@@ -188,6 +192,9 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) {
             if output != nil {
                 fmt.Fprintf(output, "Skipped - %s\n", line.orig)
             }
+        }
+        if line.hasErrors {
+            fmt.Fprintf(output, "%v", line.errors)
         }
     }
 }
