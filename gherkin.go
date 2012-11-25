@@ -278,10 +278,14 @@ func createTableMap(keys []string, fields []string) (l map[string]string) {
     return
 }
 
-func (r *Runner) startScenarioOutline() {
+func (r *Runner) resetWithScenario(s Scenario) {
     r.isExample = false
-    r.scenarios = append(r.scenarios, &scenario_outline{})
+    r.scenarios = append(r.scenarios, s)
     r.currScenario = r.scenarios[len(r.scenarios)-1]
+}
+
+func (r *Runner) startScenarioOutline() {
+    r.resetWithScenario(&scenario_outline{})
 }
 
 func (r *Runner) runBackground() {
@@ -291,9 +295,7 @@ func (r *Runner) runBackground() {
 }
 
 func (r *Runner) startScenario() {
-    r.isExample = false
-    r.scenarios = append(r.scenarios, &scenario{})
-    r.currScenario = r.scenarios[len(r.scenarios)-1]
+    r.resetWithScenario(&scenario{})
 }
 
 func (r *Runner) currStep() *step {
