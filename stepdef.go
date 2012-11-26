@@ -27,3 +27,7 @@ func (s stepdef) execute(line *step, output io.Writer) bool {
     }
     return false
 }
+
+func (s stepdef) String() string {
+    return s.r.String()
+}

@@ -45,7 +45,7 @@ func (r *Runner) SetTearDownFn(tearDown func()) {
 
 // The recommended way to create a gherkin.Runner object.
 func CreateRunner() *Runner {
-    s := []Scenario{&scenario{}}
+    s := []Scenario{}
     return &Runner{[]stepdef{}, nil, false, nil, nil, nil, s, os.Stdout}
 }
 
@@ -144,6 +144,10 @@ func (r *Runner) startScenarioOutline() {
     r.resetWithScenario(&scenario_outline{})
 }
 
+func (r *Runner) startBackground(orig string) {
+    r.resetWithScenario(&scenario{orig: orig, isBackground: true})
+}
+
 func (r *Runner) startScenario(orig string) {
     r.resetWithScenario(&scenario{orig: orig})
 }
@@ -176,7 +180,7 @@ func (r *Runner) step(line string) {
     } else if isFeatureLine(line) {
         // Do Nothing!
     } else if isBackgroundLine(line) {
-        r.startScenario(line)
+        r.startBackground(line)
         r.background = r.currScenario
     } else if isExampleLine(line) {
         r.isExample = true
@@ -205,10 +209,12 @@ func (r *Runner) step(line string) {
 }
 
 func (r *Runner) executeScenario(scenario Scenario) {
-    r.callSetUp()
-    r.runBackground()
-    scenario.Execute(r.steps, r.output)
-    r.callTearDown()
+    if !scenario.IsBackground() {
+        r.callSetUp()
+        r.runBackground()
+        scenario.Execute(r.steps, r.output)
+        r.callTearDown()
+    }
 }
 
 // Once the step definitions are Register()'d, use Execute() to
@@ -238,6 +244,8 @@ func (r *Runner) Run() {
             file, _ := os.Open(walkPath)
             data, _ := ioutil.ReadAll(file)
             r.Execute(string(data))
+            r.scenarios = []Scenario{}
+            r.background = nil
         }
         return nil
     })

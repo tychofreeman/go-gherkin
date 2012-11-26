@@ -42,6 +42,8 @@ func (so *scenario_outline) Last() *step {
     return nil
 }
 
+func (so *scenario_outline) IsBackground() bool { return false }
+
 func (so *scenario_outline) Execute(s []stepdef, output io.Writer) {
 }
 
@@ -49,12 +51,14 @@ type Scenario interface {
     AddStep(step)
     Last() *step
     Execute([]stepdef, io.Writer)
+    IsBackground() bool
 }
 
 type scenario struct {
     steps []step
     isPending bool
     orig string
+    isBackground bool
 }
 
 func (scen *scenario) AddStep(stp step) {
@@ -96,7 +100,11 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) {
             }
         }
         if output != nil {
-            fmt.Fprintf(output, "%v", &line.errors)
+            fmt.Fprintf(output, "%v\n", &line.errors)
         }
     }
+}
+
+func (s *scenario) IsBackground() bool {
+    return s.isBackground
 }

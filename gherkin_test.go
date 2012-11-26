@@ -342,6 +342,18 @@ func TestExecutesScenarioOncePerLineInExample(t *testing.T) {
     AssertThat(t, timesRun, Equals(2))
 }
 
+func TestBackgroundDoesntExecuteBackgroundWhenRun(t *testing.T) {
+    g := createWriterlessRunner()
+    wasRun := false
+    g.RegisterStepDef(".", func(w *World) { wasRun = true })
+    g.Execute(`Feature:
+        Background:
+            Given .
+   `)
+
+   AssertThat(t, wasRun, IsFalse)
+}
+
 // Support PyStrings?
 // Support tags?
 // Support reporting.
