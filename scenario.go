@@ -44,13 +44,14 @@ func (so *scenario_outline) Last() *step {
 
 func (so *scenario_outline) IsBackground() bool { return false }
 
-func (so *scenario_outline) Execute(s []stepdef, output io.Writer) {
+func (so *scenario_outline) Execute(s []stepdef, output io.Writer) Report {
+    return Report{}
 }
 
 type Scenario interface {
     AddStep(step)
     Last() *step
-    Execute([]stepdef, io.Writer)
+    Execute([]stepdef, io.Writer) Report
     IsBackground() bool
 }
 
@@ -76,7 +77,8 @@ func (s *scenario) Last() *step {
     return nil
 }
 
-func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) {
+func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) Report {
+    rpt := Report{}
     if output != nil {
         fmt.Fprintf(output, s.orig + "\n")
     }
@@ -85,12 +87,14 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) {
         if !isPending {
             line.executeStepDef(stepdefs)
         }
-        if line.isPending {
+        if !isPending && line.isPending {
+            rpt.pendingSteps++
             if output != nil {
                 fmt.Fprintf(output, "PENDING - %s\n", line.orig)
             }
             isPending = true
         } else if isPending {
+            rpt.skippedSteps++
             if output != nil {
                 fmt.Fprintf(output, "Skipped - %s\n", line.orig)
             }
@@ -103,6 +107,7 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) {
             fmt.Fprintf(output, "%v\n", &line.errors)
         }
     }
+    return rpt
 }
 
 func (s *scenario) IsBackground() bool {
