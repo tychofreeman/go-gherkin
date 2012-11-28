@@ -99,6 +99,11 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) Report {
                 fmt.Fprintf(output, "Skipped - %s\n", line.orig)
             }
         } else {
+            if line.hasErrors {
+                rpt.failedSteps++
+            } else {
+                rpt.passedSteps++
+            }
             if output != nil {
                 fmt.Fprintf(output, "        - %s\n", line.orig)
             }
