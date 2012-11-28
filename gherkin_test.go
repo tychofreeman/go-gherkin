@@ -111,8 +111,8 @@ func TestMultipleStepsAreCalled(t *testing.T) {
     })
 
     g.Execute(featureText)
-    AssertThat(t, firstWasCalled, Equals(true))
-    AssertThat(t, secondWasCalled, Equals(true))
+    AssertThat(t, firstWasCalled, IsTrue)
+    AssertThat(t, secondWasCalled, IsTrue)
 }
 
 func TestPendingSkipsTests(t *testing.T) {
@@ -123,7 +123,7 @@ func TestPendingSkipsTests(t *testing.T) {
     g.RegisterStepDef("^the first action$", func(w *World) { actionWasCalled = true })
 
     g.Execute(featureText)
-    AssertThat(t, actionWasCalled, Equals(false))
+    AssertThat(t, actionWasCalled, IsFalse)
 }
 
 func TestPendingDoesntSkipSecondScenario(t *testing.T) {

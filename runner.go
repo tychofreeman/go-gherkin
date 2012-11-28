@@ -234,12 +234,42 @@ func (r *Runner) executeScenarios(scenarios []Scenario) Report {
 
 // Once the step definitions are Register()'d, use Execute() to
 // parse and execute Gherkin data.
-func (r *Runner) Execute(file string) {
+func (r *Runner) Execute(file string) Report {
     lines := strings.Split(file, "\n")
     for _, line := range lines {
         r.step(line)
     }
-    r.executeScenarios(r.scenarios)
+    return r.executeScenarios(r.scenarios)
+}
+
+func generateStepReport(count int, name string) string {
+    if count > 0 {
+        return fmt.Sprintf("%d %s", count, name)
+    }
+    return ""
+}
+
+func addCount(stepSpecifics []string, count int, name string) []string {
+    tmp := generateStepReport(count, name)
+    if len(tmp) > 0 {
+        stepSpecifics = append(stepSpecifics, tmp)
+    }
+    return stepSpecifics
+}
+
+func PrintReport(rpt Report, output io.Writer) {
+    stepSpecifics := []string{}
+    stepSpecifics = addCount(stepSpecifics, rpt.skippedSteps, "skipped")
+    stepSpecifics = addCount(stepSpecifics, rpt.passedSteps, "passed")
+    stepSpecifics = addCount(stepSpecifics, rpt.failedSteps, "failed")
+    stepSpecifics = addCount(stepSpecifics, rpt.pendingSteps, "pending")
+    subset := strings.Join(stepSpecifics, ", ")
+    if len(subset) > 0 {
+        subset = "(" + subset + ")"
+    }
+
+    totalSteps := rpt.skippedSteps + rpt.passedSteps + rpt.failedSteps + rpt.pendingSteps
+    fmt.Fprintf(output, "%d scenarios\n%d steps%s\n", rpt.scenarioCount, totalSteps, subset)
 }
 
 // Once the step definitions are Register()'d, use Run() to
@@ -256,7 +286,8 @@ func (r *Runner) Run() {
         } else if !info.IsDir() && featureMatch.MatchString(info.Name()) {
             file, _ := os.Open(walkPath)
             data, _ := ioutil.ReadAll(file)
-            r.Execute(string(data))
+            rpt := r.Execute(string(data))
+            PrintReport(rpt, r.output)
             r.scenarios = []Scenario{}
             r.background = nil
         }

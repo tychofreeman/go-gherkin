@@ -8,24 +8,28 @@ import (
 
 func TestReportsNumberOfPendingSteps(t *testing.T) {
     scen := &scenario{}
-    scen.AddStep(step{isPending:true})
-    rpt := scen.Execute([]stepdef{}, nil)
+    scen.AddStep(step{line:".", isPending:true})
+    regex, _ := regexp.Compile(".")
+    sd := stepdef{r:regex, f:func(w *World){ }}
+    rpt := scen.Execute([]stepdef{sd}, nil)
 
     AssertThat(t, rpt.pendingSteps, Equals(1))
 }
 
 func TestReportsNumberOfSkippedSteps(t *testing.T) {
     scen := &scenario{}
-    scen.AddStep(step{isPending:true})
-    scen.AddStep(step{isPending:true})
-    rpt := scen.Execute([]stepdef{}, nil)
+    scen.AddStep(step{line:".", isPending:true})
+    scen.AddStep(step{line:".", isPending:true})
+    regex, _ := regexp.Compile(".")
+    sd := stepdef{r:regex, f:func(w *World){ }}
+    rpt := scen.Execute([]stepdef{sd}, nil)
 
     AssertThat(t, rpt.skippedSteps, Equals(1))
 }
 
 func TestReportsNumberOfPassedSteps(t *testing.T) {
     scen := &scenario{}
-    scen.AddStep(step{})
+    scen.AddStep(step{line:"."})
     regex, _ := regexp.Compile(".")
     sd := stepdef{r:regex, f:func(w *World){ }}
     rpt := scen.Execute([]stepdef{sd}, nil)
@@ -41,4 +45,12 @@ func TestReportsNumberOfFailedSteps(t *testing.T) {
     rpt := scen.Execute([]stepdef{sd}, nil)
 
     AssertThat(t, rpt.failedSteps, Equals(1))
+}
+
+func TestReportsNumberOfUndefinedSteps(t *testing.T) {
+    scen := &scenario{}
+    scen.AddStep(step{line:"."})
+    rpt := scen.Execute([]stepdef{}, nil)
+
+    AssertThat(t, rpt.undefinedSteps, Equals(1))
 }

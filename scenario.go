@@ -84,8 +84,9 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) Report {
     }
     isPending := false
     for _, line := range s.steps {
+        stepIsFound := true
         if !isPending {
-            line.executeStepDef(stepdefs)
+            stepIsFound = line.executeStepDef(stepdefs)
         }
         if !isPending && line.isPending {
             rpt.pendingSteps++
@@ -98,6 +99,8 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) Report {
             if output != nil {
                 fmt.Fprintf(output, "Skipped - %s\n", line.orig)
             }
+        } else if !stepIsFound {
+                rpt.undefinedSteps++
         } else {
             if line.hasErrors {
                 rpt.failedSteps++

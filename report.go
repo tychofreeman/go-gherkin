@@ -6,4 +6,5 @@ type Report struct {
     skippedSteps int
     passedSteps int
     failedSteps int
+    undefinedSteps int
 }
