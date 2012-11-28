@@ -228,6 +228,7 @@ func (r *Runner) executeScenarios(scenarios []Scenario) Report {
         rpt.pendingSteps += scenarioRpt.pendingSteps
         rpt.passedSteps += scenarioRpt.passedSteps
         rpt.failedSteps += scenarioRpt.failedSteps
+        rpt.undefinedSteps += scenarioRpt.undefinedSteps
     }
     return rpt
 }
@@ -263,12 +264,13 @@ func PrintReport(rpt Report, output io.Writer) {
     stepSpecifics = addCount(stepSpecifics, rpt.passedSteps, "passed")
     stepSpecifics = addCount(stepSpecifics, rpt.failedSteps, "failed")
     stepSpecifics = addCount(stepSpecifics, rpt.pendingSteps, "pending")
+    stepSpecifics = addCount(stepSpecifics, rpt.undefinedSteps, "undefined")
     subset := strings.Join(stepSpecifics, ", ")
     if len(subset) > 0 {
         subset = "(" + subset + ")"
     }
 
-    totalSteps := rpt.skippedSteps + rpt.passedSteps + rpt.failedSteps + rpt.pendingSteps
+    totalSteps := rpt.skippedSteps + rpt.passedSteps + rpt.failedSteps + rpt.pendingSteps + rpt.undefinedSteps
     fmt.Fprintf(output, "%d scenarios\n%d steps%s\n", rpt.scenarioCount, totalSteps, subset)
 }
 

@@ -101,6 +101,9 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) Report {
             }
         } else if !stepIsFound {
                 rpt.undefinedSteps++
+                if output != nil {
+                    fmt.Fprintf(output, "UNDEFINED - %s\n", line.orig)
+                }
         } else {
             if line.hasErrors {
                 rpt.failedSteps++
