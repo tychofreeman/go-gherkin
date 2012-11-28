@@ -208,13 +208,28 @@ func (r *Runner) step(line string) {
     }
 }
 
-func (r *Runner) executeScenario(scenario Scenario) {
+func (r *Runner) executeScenario(scenario Scenario) Report{
+    rpt := Report{}
     if !scenario.IsBackground() {
         r.callSetUp()
         r.runBackground()
-        scenario.Execute(r.steps, r.output)
+        rpt = scenario.Execute(r.steps, r.output)
         r.callTearDown()
     }
+    return rpt
+}
+
+func (r *Runner) executeScenarios(scenarios []Scenario) Report {
+    rpt := Report{}
+    for _, scenario := range scenarios {
+        scenarioRpt := r.executeScenario(scenario)
+        rpt.scenarioCount++
+        rpt.skippedSteps += scenarioRpt.skippedSteps
+        rpt.pendingSteps += scenarioRpt.pendingSteps
+        rpt.passedSteps += scenarioRpt.passedSteps
+        rpt.failedSteps += scenarioRpt.failedSteps
+    }
+    return rpt
 }
 
 // Once the step definitions are Register()'d, use Execute() to
@@ -224,9 +239,7 @@ func (r *Runner) Execute(file string) {
     for _, line := range lines {
         r.step(line)
     }
-    for _, scenario := range r.scenarios {
-        r.executeScenario(scenario)
-    }
+    r.executeScenarios(r.scenarios)
 }
 
 // Once the step definitions are Register()'d, use Run() to
