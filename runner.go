@@ -167,6 +167,9 @@ func (r *Runner) setMlKeys(data []string) {
 func (r *Runner) addMlStep(data map[string]string) {
     r.currStep().addMlData(data)
 }
+func (r *Runner) addPrintableLine(line string) {
+    r.scenarios = append(r.scenarios, &printable_line{line})
+}
 
 func (r *Runner) step(line string) {
     fields := parseTableLine(line)
@@ -178,13 +181,15 @@ func (r *Runner) step(line string) {
     } else if isScenarioLine(line) {
         r.startScenario(line)
     } else if isFeatureLine(line) {
-        // Do Nothing!
+        r.addPrintableLine(line)
     } else if isBackgroundLine(line) {
         r.startBackground(line)
         r.background = r.currScenario
     } else if isExampleLine(line) {
+        r.addPrintableLine(line)
         r.isExample = true
     } else if r.isExample && len(fields) > 0 {
+        r.addPrintableLine(line)
         switch scen := r.currScenario.(type) {
             case *scenario_outline:
                 if scen.keys == nil {
@@ -196,6 +201,7 @@ func (r *Runner) step(line string) {
             default:
         }
     } else if r.currStep() != nil && len(fields) > 0 {
+        r.addPrintableLine(line)
         s := *r.currStep()
         if len(s.keys) == 0 {
             r.setMlKeys(fields)
@@ -205,16 +211,22 @@ func (r *Runner) step(line string) {
             l := createTableMap(s.keys, fields)
             r.addMlStep(l)
         }
+    } else {
+        r.addPrintableLine(line)
     }
 }
 
 func (r *Runner) executeScenario(scenario Scenario) Report{
     rpt := Report{}
     if !scenario.IsBackground() {
-        r.callSetUp()
-        r.runBackground()
+        if !scenario.IsJustPrintable() {
+            r.callSetUp()
+            r.runBackground()
+        }
         rpt = scenario.Execute(r.steps, r.output)
-        r.callTearDown()
+        if !scenario.IsJustPrintable() {
+            r.callTearDown()
+        }
     }
     return rpt
 }

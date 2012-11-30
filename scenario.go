@@ -44,15 +44,40 @@ func (so *scenario_outline) Last() *step {
 
 func (so *scenario_outline) IsBackground() bool { return false }
 
+func (scen *scenario_outline) IsJustPrintable() bool { return false }
+
 func (so *scenario_outline) Execute(s []stepdef, output io.Writer) Report {
     return Report{}
 }
+
+type printable_line struct {
+    line string
+}
+
+func (uls *printable_line) AddStep(s step) {
+}
+
+func (uls *printable_line) Last() *step {
+    return nil
+}
+
+func (uls *printable_line)Execute(steps []stepdef, output io.Writer) Report {
+    fmt.Fprintf(output, "%s\n", uls.line)
+    return Report{}
+}
+
+func (uls *printable_line) IsBackground() bool {
+    return false
+}
+
+func (scen *printable_line) IsJustPrintable() bool { return true }
 
 type Scenario interface {
     AddStep(step)
     Last() *step
     Execute([]stepdef, io.Writer) Report
     IsBackground() bool
+    IsJustPrintable() bool
 }
 
 type scenario struct {
@@ -61,6 +86,8 @@ type scenario struct {
     orig string
     isBackground bool
 }
+
+func (scen *scenario) IsJustPrintable() bool { return false }
 
 func (scen *scenario) AddStep(stp step) {
     if scen.steps == nil {
@@ -111,11 +138,11 @@ func (s *scenario) Execute(stepdefs []stepdef, output io.Writer) Report {
                 rpt.passedSteps++
             }
             if output != nil {
-                fmt.Fprintf(output, "        - %s\n", line.orig)
+                fmt.Fprintf(output, "%s", line.orig)
             }
         }
         if output != nil {
-            fmt.Fprintf(output, "%v\n", &line.errors)
+            fmt.Fprintf(output, "\n\t%v\n", &line.errors)
         }
     }
     return rpt
