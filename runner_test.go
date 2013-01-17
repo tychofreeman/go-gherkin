@@ -21,6 +21,10 @@ func (ms MockScenario) IsBackground() bool {
     return false
 }
 
+func (ms MockScenario) IsJustPrintable() bool {
+    return false
+}
+
 func TestReportsNumberOfScenarios(t *testing.T) {
     scenarios := []Scenario{
         MockScenario{rpt:Report{0,0,0,1,0,0}},

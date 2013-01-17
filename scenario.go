@@ -62,7 +62,9 @@ func (uls *printable_line) Last() *step {
 }
 
 func (uls *printable_line)Execute(steps []stepdef, output io.Writer) Report {
-    fmt.Fprintf(output, "%s\n", uls.line)
+    if output != nil {
+        fmt.Fprintf(output, "%s\n", uls.line)
+    }
     return Report{}
 }
 
