@@ -8,6 +8,7 @@ import (
     "io/ioutil"
     "path/filepath"
     "os"
+    matchers "github.com/tychofreeman/go-matchers"
 )
 
 type Runner struct {
@@ -289,7 +290,7 @@ func PrintReport(rpt Report, output io.Writer) {
 // Once the step definitions are Register()'d, use Run() to
 // locate all *.feature files within the feature/ subdirectory
 // of the current directory.
-func (r *Runner) Run() {
+func (r *Runner) Run(t matchers.Errorable) {
     featureMatch, _ := re.Compile(`.*\.feature`)
     filepath.Walk("features", func(walkPath string, info os.FileInfo, err error) error {
         if err != nil {
@@ -304,6 +305,9 @@ func (r *Runner) Run() {
             PrintReport(rpt, r.output)
             r.scenarios = []Scenario{}
             r.background = nil
+            if rpt.failedSteps > 0 {
+                t.Errorf("Failed %s", file)
+            }
         }
         return nil
     })

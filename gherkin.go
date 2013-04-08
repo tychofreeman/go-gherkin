@@ -2,6 +2,7 @@
 package gherkin
 
 import "io"
+import matchers "github.com/tychofreeman/go-matchers"
 
 // Static Runner object to make creating tests easier
 var DefaultRunner = CreateRunner()
@@ -50,6 +51,6 @@ func SetOutput(output io.Writer) {
 
 // Pass-through for Runner.Run()
 // This should be called after everything else.
-func Run() {
-    DefaultRunner.Run()
+func Run(t matchers.Errorable) {
+    DefaultRunner.Run(t)
 }
