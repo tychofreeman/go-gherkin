@@ -9,7 +9,7 @@ import (
 type World struct {
     regexParams []string
     regexParamIndex int
-    multiStep []map[string]string
+    MultiStep []map[string]string
     output io.Writer
     gotAnError bool
 }
