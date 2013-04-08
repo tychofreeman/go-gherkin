@@ -181,7 +181,7 @@ func TestCallsTearDownBeforeScenario(t *testing.T) {
 func TestPassesTableListToMultiLineStep(t *testing.T) {
     g := createWriterlessRunner()
     var data []map[string]string
-    g.RegisterStepDef(".", func(w *World) { data = w.multiStep })
+    g.RegisterStepDef(".", func(w *World) { data = w.MultiStep })
     g.Execute(`Feature:
         Scenario:
             Then you should see these people
@@ -221,8 +221,8 @@ func TestSupportsMultipleMultiLineStepsPerScenario(t *testing.T) {
     g := createWriterlessRunner()
     var givenData []map[string]string
     var whenData []map[string]string
-    g.RegisterStepDef("given", func(w *World) { givenData = w.multiStep })
-    g.RegisterStepDef("when", func(w *World) { whenData = w.multiStep })
+    g.RegisterStepDef("given", func(w *World) { givenData = w.MultiStep })
+    g.RegisterStepDef("when", func(w *World) { whenData = w.MultiStep })
 
     g.Execute(`Feature:
         Scenario:

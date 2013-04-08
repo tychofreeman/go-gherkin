@@ -19,7 +19,7 @@ func (s stepdef) execute(line *step, output io.Writer) bool {
     if s.r.MatchString(line.String()) {
         if s.f != nil {
             substrs := s.r.FindStringSubmatch(line.String())
-            w := &World{regexParams:substrs, multiStep:line.mldata, output: output} 
+            w := &World{regexParams:substrs, MultiStep:line.mldata, output: output} 
             defer func() { line.hasErrors = w.gotAnError }()
             s.f(w)
         }
